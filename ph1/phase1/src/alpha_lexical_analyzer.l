@@ -5,7 +5,7 @@
 
 #define YY_DECL int alpha_yylex (void* yylval)
 
-unsigned int tokencounter = 0;
+unsigned int tokencounter = 1;
 
 typedef struct alpha_token_t{
   unsigned int     numline;
@@ -15,7 +15,7 @@ typedef struct alpha_token_t{
   struct           alpha_token_t *next;
 }alpha_token_t;
 
-alpha_token_t *insertAlphaToken(alpha_token_t *head, alpha_token_t *newNode);
+void insertAlphaToken(alpha_token_t **head, alpha_token_t *newNode);
 
 %}
 
@@ -52,7 +52,7 @@ MINUSMINUS		--
 GREATERTHAN		>
 LESSTHAN		<
 GREATEREQUAL	>=
-LESSEQUAL		=<
+LESSEQUAL		<=
 
 DIGIT			[0-9]+
 
@@ -96,95 +96,503 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->type = "KEYWORD";
 						newNode->next = NULL;
 						
-						yylval =  insertAlphaToken(yylval, newNode);
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
 					}
 
 
-{ELSE}				{ printf("ELSE: %s\n", yytext); }
+{ELSE}				{ printf("ELSE: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+					
+					}
 
 
-{WHILE}				{ printf("WHILE: %s\n", yytext); }
+{WHILE}				{ printf("WHILE: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{FOR}				{ printf("FOR: %s\n", yytext); }
+{FOR}				{ printf("FOR: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{FUNCTION}			{ printf("FUNCTION: %s\n", yytext); }
+{FUNCTION}			{ printf("FUNCTION: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{RETURN}			{ printf("RETURN: %s\n", yytext); }
+{RETURN}			{ printf("RETURN: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{BREAK}				{ printf("BREAK: %s\n", yytext); }
+{BREAK}				{ printf("BREAK: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{CONTINUE}			{ printf("CONTINUE: %s\n", yytext); }
+{CONTINUE}			{ printf("CONTINUE: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{AND}				{ printf("AND: %s\n", yytext); }
+{AND}				{ printf("AND: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{NOT}				{ printf("NOT: %s\n", yytext); }
+{NOT}				{ printf("NOT: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{OR}				{ printf("OR: %s\n", yytext); }
+{OR}				{ printf("OR: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{LOCAL}				{ printf("LOCAL: %s\n", yytext); }
+{LOCAL}				{ printf("LOCAL: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{TRUE}				{ printf("TRUE: %s\n", yytext); }
+{TRUE}				{ printf("TRUE: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{FALSE}				{ printf("FALSE: %s\n", yytext); }
+{FALSE}				{ printf("FALSE: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{NIL}				{ printf("NIL: %s\n", yytext); }
+{NIL}				{ printf("NIL: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{EQUAL}             { printf("EQUAL: %s\n", yytext); }
+{EQUAL}             { printf("EQUAL: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{PLUS}              { printf("PLUS: %s\n", yytext); }
+{PLUS}              { printf("PLUS: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{MINUS}             { printf("MINUS: %s\n", yytext); }
+{MINUS}             { printf("MINUS: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{ASTERISK}          { printf("ASTERISK: %s\n", yytext); }
+{ASTERISK}          { printf("ASTERISK: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{DIVISION}          { printf("DIVISION: %s\n", yytext); }
+{DIVISION}          { printf("DIVISION: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{MODULO}            { printf("MODULO: %s\n", yytext); }
+{MODULO}            { printf("MODULO: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{COMPARISON}        { printf("COMPARISON: %s\n", yytext); }
+{COMPARISON}        { printf("COMPARISON: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{UNEQUAL}           { printf("UNEQUAL: %s\n", yytext); }
+{UNEQUAL}           { printf("UNEQUAL: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{PLUSPLUS}          { printf("PLUSPLUS: %s\n", yytext); }
+{PLUSPLUS}          { printf("PLUSPLUS: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{MINUSMINUS}        { printf("MINUSMINUS: %s\n", yytext); }
+{MINUSMINUS}        { printf("MINUSMINUS: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{GREATERTHAN}       { printf("GREATERTHAN: %s\n", yytext); }
+{GREATERTHAN}       { printf("GREATERTHAN: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{LESSTHAN}          { printf("LESSTHAN: %s\n", yytext); }
+{LESSTHAN}          { printf("LESSTHAN: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{GREATEREQUAL}      { printf("GREATEREQUAL: %s\n", yytext); }
+{GREATEREQUAL}      { printf("GREATEREQUAL: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{LESSEQUAL}         { printf("LESSEQUAL: %s\n", yytext); }
+{LESSEQUAL}         { printf("LESSEQUAL: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "OPERATOR";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
-{DIGIT}				{ printf("DIGIT: %s\n", yytext); }
+{DIGIT}				{ printf("DIGIT: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "INTCONST";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						/*printf("%p\n", yylval);*/
+
+					}
 
 
 {REALDIGIT}			{ printf("REALDIGIT: %s\n", yytext); }
@@ -258,7 +666,7 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 					}
 
 
-{WHITESPACE}		;
+{WHITESPACE}		{ printf("WHITESPACE\n"); }
 
 
 {WRONGIDENT}		{ printf("Wrong ID: %s\n", yytext); }
@@ -268,31 +676,30 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 %%
 
 
-alpha_token_t *insertAlphaToken(alpha_token_t *head, alpha_token_t *newNode){
+void insertAlphaToken(alpha_token_t **head, alpha_token_t *newNode){
 	
 	if(newNode == NULL) {
 		perror("newNode == NULL\n");
-		return NULL;
 	}	
 	
-	if(head == NULL){
-		head = newNode;
-		return head;
+	if(*head == NULL){
+		*head = newNode;
+		return;
 	}
 	
-	alpha_token_t *q = head;
+	alpha_token_t *q = *head;
 	
 	while(q->next != NULL){
 		q = q->next;	
 	}
 	
 	q->next = newNode;
-	return head;
+
 }
 
 
-void printTokenList(alpha_token_t *head){
-	alpha_token_t *q = head;
+void printTokenList(alpha_token_t **head){
+	alpha_token_t *q = *head;
 
 	while(q != NULL){
 		printf("%u: #%u %s %s\n", q->numline, q->numToken, q->content, q->type);
@@ -304,10 +711,11 @@ void printTokenList(alpha_token_t *head){
 
 
 int main() {
-    alpha_token_t *yylval = malloc(sizeof(alpha_token_t));
-    alpha_yylex (yylval);
+    alpha_token_t *yylval = NULL;
+	alpha_yylex (&yylval);
+	/*printf("%p\n", yylval);*/
 		/*printf("%u: #%u %s %s\n", yylval->numline, yylval->numToken, yylval->content, yylval->type);*/
-	printTokenList(yylval);
+	printTokenList(&yylval);
     return 0;
 }
 
