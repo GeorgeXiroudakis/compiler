@@ -1,2 +1,10 @@
 if
+else
 if
+while
+while
+else
+if 16 <= 8+12
+local
+true * false
+% continue
