@@ -1,16 +1,21 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define YY_DECL int alpha_yylex (void* yylval)
 
-typedef struct{
+unsigned int tokencounter = 0;
+
+typedef struct alpha_token_t{
   unsigned int     numline;
   unsigned int     numToken;
   char	           *content;
   char             *type;
-  struct           alpha_token_t *alpha_yylex;
+  struct           alpha_token_t *next;
 }alpha_token_t;
+
+alpha_token_t *insertAlphaToken(alpha_token_t *head, alpha_token_t *newNode);
 
 %}
 
@@ -81,7 +86,18 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 
 %%
 
-{IF}				{ printf("IF: %s\n", yytext); }
+{IF}				{ printf("IF: %s\n", yytext);
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "KEYWORD";
+						newNode->next = NULL;
+						
+						yylval =  insertAlphaToken(yylval, newNode);
+					}
 
 
 {ELSE}				{ printf("ELSE: %s\n", yytext); }
@@ -217,12 +233,13 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 
 
 {SINGLECOM}         {
+						printf("SINGELECOM: %s\n", yytext); 
+
 						int c;
 						do{
 							c = input();
-						}while(c != '\n' || c != EOF);
+						}while(c != '\n' && c != EOF);
 
-						return 0;
 					}
 
 
@@ -238,7 +255,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 							}
 						}
 
-						return 0;
 					}
 
 
@@ -251,13 +267,47 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 .					{ printf("Unexpected character: %s\n", yytext); }
 %%
 
-/*void printLexAnalysis()*/
+
+alpha_token_t *insertAlphaToken(alpha_token_t *head, alpha_token_t *newNode){
+	
+	if(newNode == NULL) {
+		perror("newNode == NULL\n");
+		return NULL;
+	}	
+	
+	if(head == NULL){
+		head = newNode;
+		return head;
+	}
+	
+	alpha_token_t *q = head;
+	
+	while(q->next != NULL){
+		q = q->next;	
+	}
+	
+	q->next = newNode;
+	return head;
+}
+
+
+void printTokenList(alpha_token_t *head){
+	alpha_token_t *q = head;
+
+	while(q != NULL){
+		printf("%u: #%u %s %s\n", q->numline, q->numToken, q->content, q->type);
+
+		q = q->next;
+	}
+}
+
+
 
 int main() {
-    alpha_token_t *yylval;
+    alpha_token_t *yylval = malloc(sizeof(alpha_token_t));
     alpha_yylex (yylval);
-	
-	printf("doing print\n");
+		/*printf("%u: #%u %s %s\n", yylval->numline, yylval->numToken, yylval->content, yylval->type);*/
+	printTokenList(yylval);
     return 0;
 }
 
