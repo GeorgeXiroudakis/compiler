@@ -4,7 +4,11 @@ if
 while
 while
 else
-if 16 <= 8+12
+if (16 <= 8+12){
+	x = 14.5
+}else{
+	x = 15.5
+}
 local
 true * false
 % continue

@@ -5,6 +5,9 @@
 
 #define YY_DECL int alpha_yylex (void* yylval)
 
+#define RESET   "\033[0m"
+#define RED     "\033[31m"
+
 unsigned int tokencounter = 1;
 
 typedef struct alpha_token_t{
@@ -12,10 +15,12 @@ typedef struct alpha_token_t{
   unsigned int     numToken;
   char	           *content;
   char             *type;
+  char		   *vartype;
   struct           alpha_token_t *next;
 }alpha_token_t;
 
 void insertAlphaToken(alpha_token_t **head, alpha_token_t *newNode);
+void addToTokenList(char *typename, char *vartypename, void *yylval);
 
 %}
 
@@ -88,18 +93,8 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 
 {IF}				{ printf("IF: %s\n", yytext);
 
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "KEYWORD";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-					}
+						addToTokenList("KEYWORD", "enumeration", yylval);
+				}
 
 
 {ELSE}				{ printf("ELSE: %s\n", yytext); 
@@ -113,9 +108,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-					
 					}
 
 
@@ -130,9 +122,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -147,9 +136,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -164,9 +150,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -181,9 +164,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -198,9 +178,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -215,9 +192,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -232,9 +206,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -249,9 +220,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -266,9 +234,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -283,9 +248,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -300,9 +262,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -317,9 +276,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -334,9 +290,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -351,9 +304,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -368,9 +318,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -385,9 +332,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -402,9 +346,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -419,9 +360,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -436,9 +374,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -453,9 +388,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -470,9 +402,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -487,9 +416,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -504,9 +430,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -521,9 +444,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -538,9 +458,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -555,9 +472,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -572,9 +486,6 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
@@ -589,55 +500,248 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						newNode->next = NULL;
 						
 						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-						/*printf("%p\n", yylval);*/
-
 					}
 
 
-{REALDIGIT}			{ printf("REALDIGIT: %s\n", yytext); }
+{REALDIGIT}			{ printf("REALDIGIT: %s\n", yytext); 
+					
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "REAL_NUMBER";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+				}
 
 
-{STRING}			{ printf("STRING: %s\n", yytext); }
+{STRING}			{ printf("STRING: %s\n", yytext); 
+					
+					unsigned int i = 0;
+					unsigned int k = 0;
+					char *output = malloc(strlen(yytext)+1);
+					while (yytext[i] != '\0'){
+						if(yytext[i] == '\\'){
+							if(yytext[i+1] == 'n'){
+								output[k] = '\n';
+								i++;
+							} else if (yytext[i+1] == 't'){
+								output[k] = '\t';
+								i++;
+							} else if (yytext[i+1] == '\\'){
+								output[k] = '\\';
+								i++;
+							} else {
+								i++;
+								continue;
+							}
+						} else {
+							output[k] = yytext[i];
+						}
+						
+						i++;
+						k++;
+					}
+					
+					output[k] = '\0';
+					
+					alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+					newNode->numline = yylineno;
+					newNode->numToken = tokencounter++;
+					newNode->content = malloc(strlen(output)+1);
+					strcpy(newNode->content, output);
+					newNode->type = "STRING";
+					newNode->next = NULL;
+					
+					insertAlphaToken((alpha_token_t **)yylval, newNode);
+									
+				}
 
 
-{SQBRACKETOPEN}     { printf("SQBRACKETOPEN: %s\n", yytext); }
+{SQBRACKETOPEN}     { printf("SQBRACKETOPEN: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+		    }
 
 
-{SQBRACKETCLOSE}    { printf("SQBRACKETCLOSE: %s\n", yytext); }
+{SQBRACKETCLOSE}    { printf("SQBRACKETCLOSE: %s\n", yytext); 
+			
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+		    }
 
 
-{CURBRACKETOPEN}    { printf("CURBRACKETOPEN: %s\n", yytext); }
+{CURBRACKETOPEN}    { printf("CURBRACKETOPEN: %s\n", yytext); 
+			  			
+			  			alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+		    }
 
 
-{CURBRACKETCLOSE}   { printf("CURBRACKETCLOSE: %s\n", yytext); }
+{CURBRACKETCLOSE}   { printf("CURBRACKETCLOSE: %s\n", yytext); 
+			
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+		    }
 
 
-{PARENTHOPEN}		{ printf("PARENTHOPEN: %s\n", yytext); }
+{PARENTHOPEN}		{ printf("PARENTHOPEN: %s\n", yytext); 
+
+				alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+			}
 
 
-{PARENTHCLOSE}      { printf("PARENTHCLOSE: %s\n", yytext); }
+{PARENTHCLOSE}      { printf("PARENTHCLOSE: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+	            }
 
 
-{SEMICOLON}         { printf("SEMICOLON: %s\n", yytext); }
+{SEMICOLON}         { printf("SEMICOLON: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+		    }
 
 
-{COMMA}             { printf("COMMA: %s\n", yytext); }
+{COMMA}             { printf("COMMA: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+ 		    }
 
 
-{COLON}             { printf("COLON: %s\n", yytext); }
+{COLON}             { printf("COLON: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+		  }
 
 
-{DOUBLECOLON}       { printf("DOUBLECOLON: %s\n", yytext); }
+{DOUBLECOLON}       { printf("DOUBLECOLON: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+		    }
 
 
-{DOT}				{ printf("DOT: %s\n", yytext); }
+{DOT}		{ printf("DOT: %s\n", yytext); 
+			
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+		}
 
 
-{DOUBLEDOT}         { printf("DOUBLEDOT: %s\n", yytext); }
+{DOUBLEDOT}         { printf("DOUBLEDOT: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "PUNCTUATION";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);
+						
+		    }
 
 
-{IDENTIFIER}		{ printf("IDENTIFIER: %s\n", yytext); }
+{IDENTIFIER}		{ printf("IDENTIFIER: %s\n", yytext); 
+
+						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						newNode->numline = yylineno;
+						newNode->numToken = tokencounter++;
+						newNode->content = malloc(strlen(yytext) + 1);
+						strcpy(newNode->content, yytext);
+						newNode->type = "IDENTIFIER";
+						newNode->next = NULL;
+						
+						insertAlphaToken((alpha_token_t **)yylval, newNode);			
+			}
 
 
 {SINGLECOM}         {
@@ -652,16 +756,30 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 
 
 {MULTICOM}			{
-						printf("MULTICOM: %s\n", yytext); 
-
+						printf("MULTICOM: %s\n", yytext);
+						
+						unsigned int multicomcounter = 1;
 						int c;
-						while ((c = input()) != EOF){
-							if(c == '*'){
+						while ((c = input())){
+							if(c == EOF)break;
+							
+							if(c == '/'){
 								c = input();
-								if(c == '/')break;
+								if(c == '*') multicomcounter++;   /*nested comment*/
+								else unput(c);
+							} else if(c == '*'){
+								c = input();
+								if(c == '/'){
+									
+									multicomcounter--;
+									if(multicomcounter <= 0) break;
+								}
 								else unput(c);
 							}
 						}
+						
+						
+						if(multicomcounter > 0) fprintf(stderr, RED "Unclosed comment at line:%d\n" RESET, yylineno); 
 
 					}
 
@@ -669,7 +787,7 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 {WHITESPACE}		{ printf("WHITESPACE\n"); }
 
 
-{WRONGIDENT}		{ printf("Wrong ID: %s\n", yytext); }
+{WRONGIDENT}		{ printf("Wrong ID: %s\n", yytext); fprintf(stderr, RED "Invalid identifier %s at line:%d\n" RESET, yytext, yylineno); exit(-1);}
 
 
 .					{ printf("Unexpected character: %s\n", yytext); }
@@ -697,12 +815,30 @@ void insertAlphaToken(alpha_token_t **head, alpha_token_t *newNode){
 
 }
 
+void addToTokenList(char *typename, char *vartypename, void *yylval){
+	alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+	
+	newNode->numline = yylineno;
+	newNode->numToken = tokencounter++;
+	newNode->content = malloc(strlen(yytext) + 1);
+	strcpy(newNode->content, yytext);
+	newNode->type = typename;
+	newNode->vartype = vartypename;
+	newNode->next = NULL;
+	
+	insertAlphaToken((alpha_token_t **)yylval, newNode);
+	
+}
 
 void printTokenList(alpha_token_t **head){
 	alpha_token_t *q = *head;
 
 	while(q != NULL){
-		printf("%u: #%u %s %s\n", q->numline, q->numToken, q->content, q->type);
+		if(q->type != "STRING"){
+			printf("%u: #%u \"%s\" %s\n", q->numline, q->numToken, q->content, q->type);
+		} else {
+			printf("%u: #%u %s %s\n", q->numline, q->numToken, q->content, q->type);
+		}
 
 		q = q->next;
 	}
@@ -713,8 +849,7 @@ void printTokenList(alpha_token_t **head){
 int main() {
     alpha_token_t *yylval = NULL;
 	alpha_yylex (&yylval);
-	/*printf("%p\n", yylval);*/
-		/*printf("%u: #%u %s %s\n", yylval->numline, yylval->numToken, yylval->content, yylval->type);*/
+
 	printTokenList(&yylval);
     return 0;
 }
