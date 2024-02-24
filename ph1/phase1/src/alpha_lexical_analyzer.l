@@ -15,12 +15,13 @@ typedef struct alpha_token_t{
   unsigned int     numToken;
   char	           *content;
   char             *type;
+  char		   *specificContent;
   char		   *vartype;
   struct           alpha_token_t *next;
 }alpha_token_t;
 
 void insertAlphaToken(alpha_token_t **head, alpha_token_t *newNode);
-void addToTokenList(char *typename, char *vartypename, void *yylval);
+void addToTokenList(char *typename, char *vartypename, void *yylval, char *spCon);
 
 %}
 
@@ -91,193 +92,169 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 
 %%
 
-{IF}				{ printf("IF: %s\n", yytext);
+{IF}				{
+						addToTokenList("KEYWORD", "enumerated", yylval, "IF");
+					}
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
 
+{ELSE}				{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "ELSE");
+					}
 
-{ELSE}				{ printf("ELSE: %s\n", yytext); 
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
+{WHILE}				{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "WHILE");
+					}
 
 
-{WHILE}				{ printf("WHILE: %s\n", yytext); 
+{FOR}				{ 
+						addToTokenList("KEYWORD", "enumerated", yylval, "FOR");
+					}
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
 
+{FUNCTION}			{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "FUNCTION");	
+					}
 
-{FOR}				{ printf("FOR: %s\n", yytext); 
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
+{RETURN}			{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "RETURN");
+					}
 
 
-{FUNCTION}			{ printf("FUNCTION: %s\n", yytext); 
+{BREAK}				{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "BREAK");
+					}
 
-					addToTokenList("KEYWORD", "enumerated", yylval);	
-				}
 
+{CONTINUE}			{  
+					addToTokenList("KEYWORD", "enumerated", yylval, "CONTINUE");
+					}
 
-{RETURN}			{ printf("RETURN: %s\n", yytext); 
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
+{AND}				{ 
+						addToTokenList("KEYWORD", "enumerated", yylval, "AND");
+					}
 
 
-{BREAK}				{ printf("BREAK: %s\n", yytext); 
+{NOT}				{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "NOT");
+					}
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
 
+{OR}				{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "OR");
+					}
 
-{CONTINUE}			{ printf("CONTINUE: %s\n", yytext); 
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
+{LOCAL}				{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "LOCAL");
+					}
 
 
-{AND}				{ printf("AND: %s\n", yytext); 
+{TRUE}				{  
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
+						addToTokenList("KEYWORD", "enumerated", yylval, "TRUE");
+				    }
 
 
-{NOT}				{ printf("NOT: %s\n", yytext); 
+{FALSE}				{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "FALSE");
+					}
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
 
+{NIL}				{  
+						addToTokenList("KEYWORD", "enumerated", yylval, "NIL");		
+					}
 
-{OR}				{ printf("OR: %s\n", yytext); 
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
+{EQUAL}        		{  
+						addToTokenList("OPERATOR", "enumerated", yylval, "EQUAL");
+					}
 
 
-{LOCAL}				{ printf("LOCAL: %s\n", yytext); 
+{PLUS}      		{ 
+						addToTokenList("OPERATOR", "enumerated", yylval, "PLUS");
+					}
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
 
+{MINUS}      		{ 
+						addToTokenList("OPERATOR", "enumerated", yylval, "MINUS");
+					}
 
-{TRUE}				{ printf("TRUE: %s\n", yytext); 
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
+{ASTERISK}     		{  
+						addToTokenList("OPERATOR", "enumerated", yylval, "ASTERISK");
+					}
 
 
-{FALSE}				{ printf("FALSE: %s\n", yytext); 
+{DIVISION}          {  
+						addToTokenList("OPERATOR", "enumerated", yylval, "DIVISION");
+					}
 
-					addToTokenList("KEYWORD", "enumerated", yylval);
-				}
 
+{MODULO}    		{  
+						addToTokenList("OPERATOR", "enumerated", yylval, "MODULO");
+					}
 
-{NIL}				{ printf("NIL: %s\n", yytext); 
 
-					addToTokenList("KEYWORD", "enumerated", yylval);		
-				}
+{COMPARISON}		{  
+						addToTokenList("OPERATOR", "enumerated", yylval, "COMPARISON");
+					}
 
 
-{EQUAL}             		{ printf("EQUAL: %s\n", yytext); 
+{UNEQUAL}   		{  
+						addToTokenList("OPERATOR", "enumerated", yylval, "UNEQUAL");
+					}
 
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
 
+{PLUSPLUS}    		{  
+						addToTokenList("OPERATOR", "enumerated", yylval, "PLUSPLUS");
+					}
 
-{PLUS}              		{ printf("PLUS: %s\n", yytext); 
 
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
+{MINUSMINUS}    	{  
+						addToTokenList("OPERATOR", "enumerated", yylval, "MINUSMINUS");
+					}
 
 
-{MINUS}             		{ printf("MINUS: %s\n", yytext); 
+{GREATERTHAN}   	{ 
+						addToTokenList("OPERATOR", "enumerated", yylval, "GREATERTHAN");
+					}
 
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
 
+{LESSTHAN}      	{  
+						addToTokenList("OPERATOR", "enumerated", yylval, "LESSTHAN");
+					} 
 
-{ASTERISK}          		{ printf("ASTERISK: %s\n", yytext); 
 
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
+{GREATEREQUAL}      {  
+						addToTokenList("OPERATOR", "enumerated", yylval, "GREATERQUAL");
+					}
 
 
-{DIVISION}          		{ printf("DIVISION: %s\n", yytext); 
+{LESSEQUAL}         {  
+						addToTokenList("OPERATOR", "enumerated", yylval, "LESSEQUAL");
+					}
 
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
 
+{DIGIT}			    {  
+						char *temp;
+						temp = malloc(strlen(yytext) + 1);
+						strcpy(temp, yytext);
+						addToTokenList("CONST_INT", "integer", yylval, temp);
+					}
 
-{MODULO}            		{ printf("MODULO: %s\n", yytext); 
 
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
+{REALDIGIT}			{  
+						char *temp;
+						temp = malloc(strlen(yytext) + 1);
+						strcpy(temp, yytext);
+						addToTokenList("REAL_DIGIT", "real", yylval, temp);
+					}
 
 
-{COMPARISON}        		{ printf("COMPARISON: %s\n", yytext); 
-
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
-
-
-{UNEQUAL}           		{ printf("UNEQUAL: %s\n", yytext); 
-
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
-
-
-{PLUSPLUS}          		{ printf("PLUSPLUS: %s\n", yytext); 
-
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
-
-
-{MINUSMINUS}        		{ printf("MINUSMINUS: %s\n", yytext); 
-
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
-
-
-{GREATERTHAN}       		{ printf("GREATERTHAN: %s\n", yytext); 
-
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
-
-
-{LESSTHAN}          		{ printf("LESSTHAN: %s\n", yytext); 
-
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
-
-
-{GREATEREQUAL}      		{ printf("GREATEREQUAL: %s\n", yytext); 
-
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
-
-
-{LESSEQUAL}         		{ printf("LESSEQUAL: %s\n", yytext); 
-
-					addToTokenList("OPERATOR", "enumerated", yylval);
-				}
-
-
-{DIGIT}				{ printf("DIGIT: %s\n", yytext); 
-
-					addToTokenList("CONST_INT", "integer", yylval);
-				}
-
-
-{REALDIGIT}			{ printf("REALDIGIT: %s\n", yytext); 
-					
-					addToTokenList("REAL_DIGIT", "real", yylval);
-				}
-
-
-{STRING}			{ printf("STRING: %s\n", yytext); 
+{STRING}			{ 
 					
 					unsigned int i = 0;
 					unsigned int k = 0;
@@ -294,6 +271,13 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 								output[k] = '\\';
 								i++;
 							} else {
+								if(yytext[i + 1] != ' ' && yytext[i + 1] != '\n'){
+									printf(RED "Invalid escape character in string at line: %u\n" RESET, yylineno);
+									output[k] = yytext[i + 1];
+									k++;
+									i++;
+								}
+
 								i++;
 								continue;
 							}
@@ -305,8 +289,9 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						k++;
 					}
 					
-					output[k] = '\0';
-					
+					output[k - 1] = '\0';
+					output = &(output[1]);
+
 					alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
 					newNode->numline = yylineno;
 					newNode->numToken = tokencounter++;
@@ -314,212 +299,106 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 					strcpy(newNode->content, output);
 					newNode->type = "STRING";
 					newNode->next = NULL;
+					newNode->vartype = "char *";
+					newNode->specificContent = output;
 					
 					insertAlphaToken((alpha_token_t **)yylval, newNode);
-									
-				}
+					}
 
 
-{SQBRACKETOPEN}     { printf("SQBRACKETOPEN: %s\n", yytext); 
-
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-		    }
+{SQBRACKETOPEN}     {  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "SQBRACKETOPEN");
+					}
 
 
-{SQBRACKETCLOSE}    { printf("SQBRACKETCLOSE: %s\n", yytext); 
-			
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-		    }
+{SQBRACKETCLOSE}    { 
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "SQBRACKETCLOSE");
+					}
 
 
-{CURBRACKETOPEN}    { printf("CURBRACKETOPEN: %s\n", yytext); 
-			  			
-			  			alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-		    }
+{CURBRACKETOPEN}    { 
+			  			addToTokenList("PUNCTUATION", "enumerated", yylval, "CURBRACKETOPEN");
+					}
 
 
-{CURBRACKETCLOSE}   { printf("CURBRACKETCLOSE: %s\n", yytext); 
-			
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-		    }
+{CURBRACKETCLOSE}   {  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "CURBRACKETCLOSE");
+					}
 
 
-{PARENTHOPEN}		{ printf("PARENTHOPEN: %s\n", yytext); 
-
-				alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-			}
+{PARENTHOPEN}		{ 
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "PARENTHOPEN");
+					}
 
 
-{PARENTHCLOSE}      { printf("PARENTHCLOSE: %s\n", yytext); 
-
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-	            }
+{PARENTHCLOSE}      {  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "PARENTHCLOSE");
+					}	
 
 
-{SEMICOLON}         { printf("SEMICOLON: %s\n", yytext); 
-
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-		    }
+{SEMICOLON}         {  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "SEMICOLON");
+					}		
 
 
-{COMMA}             { printf("COMMA: %s\n", yytext); 
-
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
- 		    }
+{COMMA}             {  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "COMMA");
+					}
 
 
-{COLON}             { printf("COLON: %s\n", yytext); 
-
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-		  }
+{COLON}             {  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "COLON");
+					}
 
 
-{DOUBLECOLON}       { printf("DOUBLECOLON: %s\n", yytext); 
-
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-		    }
+{DOUBLECOLON}       {  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "DOUBLECOLON");
+					}		
 
 
-{DOT}		{ printf("DOT: %s\n", yytext); 
-			
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-
-		}
+{DOT}				{  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "DOT");
+					}			
 
 
-{DOUBLEDOT}         { printf("DOUBLEDOT: %s\n", yytext); 
-
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "PUNCTUATION";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);
-						
-		    }
+{DOUBLEDOT}         {  
+						addToTokenList("PUNCTUATION", "enumerated", yylval, "DOUBLEDOT");
+					}		
 
 
-{IDENTIFIER}		{ printf("IDENTIFIER: %s\n", yytext); 
-
-						alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
-						newNode->numline = yylineno;
-						newNode->numToken = tokencounter++;
-						newNode->content = malloc(strlen(yytext) + 1);
-						strcpy(newNode->content, yytext);
-						newNode->type = "IDENTIFIER";
-						newNode->next = NULL;
-						
-						insertAlphaToken((alpha_token_t **)yylval, newNode);			
-			}
+{IDENTIFIER}		{  
+						char *temp;
+						temp = malloc(strlen(yytext)+1);
+						strcpy(temp, yytext);
+						addToTokenList("IDENTIFIER", "char *", yylval, temp);			
+					}
 
 
 {SINGLECOM}         {
-						printf("SINGELECOM: %s\n", yytext); 
-
 						int c;
 						do{
 							c = input();
 						}while(c != '\n' && c != EOF);
 
+							alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+						
+							newNode->numline = yylineno;
+							newNode->numToken = tokencounter++;
+							newNode->content = "";
+							newNode->type = "COMMENT";
+							newNode->vartype = "enumerated";
+							newNode->specificContent = "LINE_COMMENT";
+							newNode->next = NULL;
+	
+							insertAlphaToken((alpha_token_t **)yylval, newNode);
 					}
 
 
 {MULTICOM}			{
-						printf("MULTICOM: %s\n", yytext);
-						
 						unsigned int multicomcounter = 1;
 						int c;
+						int start, end;
+						start = yylineno;
 						while ((c = input())){
 							if(c == EOF)break;
 							
@@ -537,20 +416,36 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 								else unput(c);
 							}
 						}
-						
+						end = yylineno;	
 						
 						if(multicomcounter > 0) fprintf(stderr, RED "Unclosed comment at line:%d\n" RESET, yylineno); 
+						else{
+							alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
+							
+							int length = snprintf(NULL, 0, "%d - %d", start, end) + 1;
+							newNode->content = (char *)malloc(length * sizeof(char));
 
+							newNode->numline = start;
+							newNode->numToken = tokencounter++;
+							snprintf(newNode->content, length, "%d - %d", start, end);
+							newNode->type = "COMMENT";
+							newNode->vartype = "enumerated";
+							newNode->specificContent = "BLOCK_COMMENT";
+							newNode->next = NULL;
+	
+							insertAlphaToken((alpha_token_t **)yylval, newNode);
+
+						}
 					}
 
 
-{WHITESPACE}		{ printf("WHITESPACE\n"); }
+{WHITESPACE}		{ ; }
 
 
 {WRONGIDENT}		{ printf("Wrong ID: %s\n", yytext); fprintf(stderr, RED "Invalid identifier %s at line:%d\n" RESET, yytext, yylineno); exit(-1);}
 
 
-.					{ printf("Unexpected character: %s\n", yytext); }
+.					{ printf(RED "Unexpected character: %s\n" RESET , yytext); }
 %%
 
 
@@ -575,7 +470,7 @@ void insertAlphaToken(alpha_token_t **head, alpha_token_t *newNode){
 
 }
 
-void addToTokenList(char *typename, char *vartypename, void *yylval){
+void addToTokenList(char *typename, char *vartypename, void *yylval, char *spCon){
 	alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
 	
 	newNode->numline = yylineno;
@@ -584,6 +479,7 @@ void addToTokenList(char *typename, char *vartypename, void *yylval){
 	strcpy(newNode->content, yytext);
 	newNode->type = typename;
 	newNode->vartype = vartypename;
+	newNode->specificContent = spCon;
 	newNode->next = NULL;
 	
 	insertAlphaToken((alpha_token_t **)yylval, newNode);
@@ -594,12 +490,11 @@ void printTokenList(alpha_token_t **head){
 	alpha_token_t *q = *head;
 
 	while(q != NULL){
-		if(q->type != "STRING"){
-			printf("%u: #%u \"%s\" %s\n", q->numline, q->numToken, q->content, q->type);
-		} else {
-			printf("%u: #%u %s %s\n", q->numline, q->numToken, q->content, q->type);
+		if( (strcmp(q->type, "IDENTIFIER") == 0) || strcmp(q->type, "STRING") == 0){
+			printf("%u: #%u \"%s\" %s \"%s\" <-- %s\n", q->numline, q->numToken, q->content, q->type, q->specificContent, q->vartype);
+		}else{
+			printf("%u: #%u \"%s\" %s %s <-- %s\n", q->numline, q->numToken, q->content, q->type, q->specificContent, q->vartype);
 		}
-
 		q = q->next;
 	}
 }

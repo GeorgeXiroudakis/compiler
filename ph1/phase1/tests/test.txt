@@ -1,14 +1,13 @@
-if
-else
-if
-while
-while
-else
-if (16 <= 8+12){
-	x = 14.5
-}else{
-	x = 15.5
-}
-local
-true * false
-% continue
+temp
+x
+/*dsfdskf
+sdfkdsjfsd
+sdfkldsj;f
+sdfksdjfdsfsdkl
+dsfkdsf
+dskfmdsf
+dsfds;f
+sdfs;dfnds
+df
+dfs*/
+"antoni stamata"
