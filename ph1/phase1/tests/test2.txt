@@ -8,7 +8,7 @@ and not or local true false nil
 "This is a test string."
 "This string contains escape sequences: \nnewline\ttabed \\space"
 { } [ ] ( ) ; , : :: . ..
-variableName1 _variable2 variable_3
+variableName1 var32_iable2 variable_3
 // This is a single-line comment
 /* This is a
    multi-line

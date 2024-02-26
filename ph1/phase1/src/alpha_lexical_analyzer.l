@@ -87,7 +87,7 @@ MULTICOM		\/\*
 
 WHITESPACE		[ \t\n]+
 
-WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
+WRONGIDENT		{DIGIT}|_(_|{IDENTIFIER})+
 
 
 %%
@@ -398,13 +398,20 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						unsigned int multicomcounter = 1;
 						int c;
 						int start, end;
+						unsigned int nestedComments = 0;
 						start = yylineno;
+					
+
+
 						while ((c = input())){
 							if(c == EOF)break;
 							
 							if(c == '/'){
 								c = input();
-								if(c == '*') multicomcounter++;   /*nested comment*/
+								if(c == '*') {
+									multicomcounter++;   /*nested comment*/
+									nestedComments++;
+								}
 								else unput(c);
 							} else if(c == '*'){
 								c = input();
@@ -422,12 +429,12 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 						else{
 							alpha_token_t *newNode = malloc(sizeof(alpha_token_t));
 							
-							int length = snprintf(NULL, 0, "%d - %d", start, end) + 1;
+							int length = snprintf(NULL, 0, "%d - %d with %d nested comments", start, end, nestedComments) + 1;
 							newNode->content = (char *)malloc(length * sizeof(char));
 
 							newNode->numline = start;
 							newNode->numToken = tokencounter++;
-							snprintf(newNode->content, length, "%d - %d", start, end);
+							snprintf(newNode->content, length, "%d - %d with %d nested comments", start, end, nestedComments);
 							newNode->type = "COMMENT";
 							newNode->vartype = "enumerated";
 							newNode->specificContent = "BLOCK_COMMENT";
@@ -445,7 +452,7 @@ WRONGIDENT		{DIGIT}(_|{IDENTIFIER})+
 {WRONGIDENT}		{ printf("Wrong ID: %s\n", yytext); fprintf(stderr, RED "Invalid identifier %s at line:%d\n" RESET, yytext, yylineno); exit(-1);}
 
 
-.					{ printf(RED "Unexpected character: %s\n" RESET , yytext); }
+.					{ printf(RED "Unexpected character: %s  at line:%d\n" RESET , yytext, yylineno); }
 %%
 
 
