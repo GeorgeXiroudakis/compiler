@@ -508,8 +508,23 @@ void printTokenList(alpha_token_t **head){
 
 
 
-int main() {
+int main(int argc, char **argv) {
+	FILE *inputFile;
     alpha_token_t *yylval = NULL;
+
+	if(argc != 2){
+		fprintf(stderr, RED "Wrong call of lexiacal analyzer\ncall with one command line argument (the file to analyze)\n" RESET);
+		exit(EXIT_FAILURE);
+	}
+
+	inputFile = fopen(argv[1], "r");
+	if(inputFile == NULL){
+		fprintf(stderr, RED "can not open input file\n" RESET);
+		exit(EXIT_FAILURE);
+	}
+
+	yyin = inputFile;
+
 	alpha_yylex (&yylval);
 
 	printTokenList(&yylval);
