@@ -1,5 +1,5 @@
 %{
-#include "alpha_parser.h"
+#include "alpha_parser.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,15 +8,9 @@
 #define RESET   "\033[0m"
 #define RED     "\033[31m"
 
-#define YY_DECL int alpha_yylex ()
+
 
 unsigned int tokencounter = 1;
-
-typedef enum keywords { IF, ELSE } keyword;
-
-
-void addToTokenList(keyword spCon);
-
 
 
 
@@ -24,7 +18,7 @@ void addToTokenList(keyword spCon);
 
 %option noyywrap
 %option yylineno
-%option header-file="./alpha_lexical_analyzer.h"
+%option header-file="src/alpha_lexical_analyzer.h"
 
 IF				if
 ELSE			else

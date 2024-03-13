@@ -4,17 +4,17 @@ PP = g++
 
 all = alpha_parser
 
-alpha_parser: src/alpha_parser.o src/alpha_lexical_analyzer.o
-	$(PP) $^ -o $@
+alpha_parser: src/alpha_parser.o src/alpha_lexical_analyzer.o 
+	$(PP) $^ -o $@ 
 
-src/alpha_lexical_analyzer.o: src/alpha_lexical_analyzer.c alpha_parser.h
-	$(CC) -c $^ -o $@
+src/alpha_lexical_analyzer.o: src/alpha_lexical_analyzer.c src/alpha_parser.hpp
+	$(CC) -c $< -o $@
 
 
 src/alpha_lexical_analyzer.c: src/alpha_lexical_analyzer.l
 	flex --outfile=$@ $<
 
-alpha_parser.o: src/alpha_parser.cpp
+src/alpha_parser.o: src/alpha_parser.cpp
 	$(PP) -c $^ -o $@
 
 
@@ -23,4 +23,4 @@ src/alpha_parser.cpp: src/alpha_parser.y
 
 
 clean:
-	rm -f alpha_parser src/alpha_lexical_analyzer.c src/alpha_parser.cpp src/alpha_parser.h src/*.o
+	rm -f alpha_parser src/*.o src/*.c src/*.cpp src/*.hpp src/*.h

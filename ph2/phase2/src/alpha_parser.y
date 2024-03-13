@@ -1,47 +1,49 @@
 %{
-#include <iostream.h>
+#include <iostream>
+#include "alpha_parser.hpp" 
 int yyerror (char* yyProvideMessage);
-int alpha_yylex(void);
+int yylex(void); 
 
 extern int yylineno;
 extern char* yytext;
 extern FILE* yyin;
-extern keyword;
+extern int keyword; 
+
+int yyerror(const char *s);
+int yylex(void);
+
+//typedef enum keywords { IF, ELSE } keyword;
 
 %}
-%
 
-
-
-%start program
-
-%union {keyword keywordVal}
+%union {
+    int keywordVal; 
+}
 
 %token<keywordVal> IF
 
-#................to be continiued
-
-
-
-
-
-
-
-#priorities!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
 %%
+
 program: IF
-	   |
-	   ;
-
-IF: "if" {std::cout << $1;}
-
-#grammar
+       |
+       ;
 
 %%
+
+
+int yyerror(const char *s) {
+    fprintf(stderr, "Error: %s\n", s);
+    return 0;
+}
+
+
+
 
 int main(int argc, char **argv) {
-	yyparse();
-	return 0;
+    
+    
+    yyin = stdin;
+    yyparse();
+    return 0;
 }
+
