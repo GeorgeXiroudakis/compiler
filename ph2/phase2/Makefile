@@ -2,13 +2,25 @@ CC = gcc
 PP = g++
 
 
-all = alpha_lexical_analyzer
+all = alpha_parser
 
-alpha_lexical_analyzer: src/alpha_lexical_analyzer.c
-	$(CC) -g src/alpha_lexical_analyzer.c -o alpha_lexical_analyzer
+alpha_parser: src/alpha_parser.o src/alpha_lexical_analyzer.o
+	$(PP) $^ -o $@
 
-alpha_lexical_analyzer.c: src/alpha_lexical_analyzer.l
-	flex --outfile=alpha_lexical_analyzer.c src/alpha_lexical_analyzer.l
+src/alpha_lexical_analyzer.o: src/alpha_lexical_analyzer.c alpha_parser.h
+	$(CC) -c $^ -o $@
+
+
+src/alpha_lexical_analyzer.c: src/alpha_lexical_analyzer.l
+	flex --outfile=$@ $<
+
+alpha_parser.o: src/alpha_parser.cpp
+	$(PP) -c $^ -o $@
+
+
+src/alpha_parser.cpp: src/alpha_parser.y
+	bison --yacc --defines --output=$@ $<
+
 
 clean:
-	@ -rm -f alpha_lexical_analyzer src/alpha_lexical_analyzer.c alpha_lexical_analyzer.h
+	rm -f alpha_parser src/alpha_lexical_analyzer.c src/alpha_parser.cpp src/alpha_parser.h src/*.o
