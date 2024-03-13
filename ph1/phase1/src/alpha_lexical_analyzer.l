@@ -270,6 +270,9 @@ WRONGIDENT		{DIGIT}|_(_|{IDENTIFIER})+
 							} else if (yytext[i+1] == '\\'){
 								output[k] = '\\';
 								i++;
+							}else if(yytext[i+1] == '\"'){
+								output[k] = '\"';
+								i++;
 							} else {
 								if(yytext[i + 1] != ' ' && yytext[i + 1] != '\n'){
 									printf(RED "Invalid escape character in string at line: %u\n" RESET, yylineno);
@@ -452,7 +455,11 @@ WRONGIDENT		{DIGIT}|_(_|{IDENTIFIER})+
 {WRONGIDENT}		{ printf("Wrong ID: %s\n", yytext); fprintf(stderr, RED "Invalid identifier %s at line:%d\n" RESET, yytext, yylineno); exit(-1);}
 
 
-.					{ printf(RED "Unexpected character: %s  at line:%d\n" RESET , yytext, yylineno); }
+.					{
+						if(yytext[0] == '\"'){printf(RED "unclosed String at line: %d.\n" RESET , yylineno); exit(0);}
+
+						else printf(RED "Unexpected character: %s  at line:%d\n" RESET , yytext, yylineno); 
+					}
 %%
 
 
@@ -528,6 +535,7 @@ int main(int argc, char **argv) {
 	alpha_yylex (&yylval);
 
 	printTokenList(&yylval);
+
     return 0;
 }
 
