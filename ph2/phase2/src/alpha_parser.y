@@ -7,10 +7,7 @@ int yylex(void);
 extern int yylineno;
 extern char* yytext;
 extern FILE* yyin;
-extern int keyword; 
 
-int yyerror(const char *s);
-int yylex(void);
 
 //typedef enum keywords { IF, ELSE } keyword;
 
