@@ -53,9 +53,9 @@ LESSTHAN		<
 GREATEREQUAL	>=
 LESSEQUAL		<=
 
-DIGIT			[0-9]+
+INTEGER			[0-9]+
 
-REALDIGIT		{DIGIT}\.{DIGIT}
+REAL		{INTEGER}\.{INTEGER}
 
 
 STRING			\"(\\.|[^\\"])*\"
@@ -80,7 +80,7 @@ MULTICOM		\/\*
 
 WHITESPACE		[ \t\n]+
 
-WRONGIDENT		{DIGIT}|_(_|{IDENTIFIER})+
+WRONGIDENT		{INTEGER}|_(_|{IDENTIFIER})+
 
 
 %%
@@ -203,13 +203,13 @@ WRONGIDENT		{DIGIT}|_(_|{IDENTIFIER})+
 					}		
 
 
-{DIGIT}				{
-						return DIGIT;
+{INTEGER}				{
+						return INTEGER;
 					}
 
 
-{REALDIGIT}			{
-						return REALDIGIT;
+{REAL}			{
+						return REAL;
 					}
 
 
