@@ -1,5 +1,10 @@
 %{
 #include <stdio.h>
+#include <stdlib.h>
+
+#define RESET   "\033[0m"
+#define RED     "\033[31m"
+
 int yyerror (char* yyProvideMessage);
 int yylex(void); 
 
@@ -12,6 +17,8 @@ extern FILE* yyin;
 
 %}
 
+%start program
+
 %union{ 
 	char* 	keywordVal;
 	char* 	punctuationVal;
@@ -19,7 +26,7 @@ extern FILE* yyin;
     	char*	idVal;
     	char* 	operatorVal;
 	int 	intVal;
-	double	doubleVal;
+	double	realVal;
 }
 
 %token<keywordVal> IF ELSE WHILE FOR FUNCTION RETURN BREAK CONTINUE AND NOT OR LOCAL TRUE FALSE NIL
@@ -38,7 +45,7 @@ extern FILE* yyin;
 
 %%
 
-program: IF
+program: IF IF{printf("found : %s and %s\n", $1, $2);}
        |
        ;
 
@@ -54,10 +61,26 @@ int yyerror(char *s) {
 
 
 int main(int argc, char **argv) {
-    
-    
-    yyin = stdin;
+	FILE *inputFile;
+
+	if(argc > 2){
+		fprintf(stderr, RED "Wrong call of alpha_parser\ncall with one optional command line argument (the file to analyze)\n" RESET);
+		exit(EXIT_FAILURE);
+	}
+
+	if(argc == 2){
+		inputFile = fopen(argv[1], "r");
+		if(inputFile == NULL){
+			fprintf(stderr, RED "can not open input file\n" RESET);
+			exit(EXIT_FAILURE);
+		}
+		yyin = inputFile;
+	}else
+		yyin = stdin;
+   
+
     yyparse();
+
     return 0;
 }
 
