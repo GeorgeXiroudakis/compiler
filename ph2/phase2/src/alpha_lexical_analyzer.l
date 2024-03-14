@@ -1,5 +1,5 @@
 %{
-#include "alpha_parser.hpp"
+#include "alpha_parser.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,6 +89,205 @@ WRONGIDENT		{DIGIT}|_(_|{IDENTIFIER})+
 						return IF;
 					}
 
+{ELSE}				{	
+						return ELSE;
+					}
+
+{WHILE}				{
+						return 	WHILE;
+					}
+
+{FOR}				{
+						return FOR;
+					}
+
+{FUNCTION}			{
+						return FUNCTION;
+					}
+
+{RETURN}			{
+						return RETURN;
+					}
+
+{BREAK}				{
+						return BREAK;
+					}
+
+{CONTINUE}			{	
+						return CONTINUE;
+					}
+
+{AND}				{
+						return AND;
+					}
+
+{NOT}				{
+						return NOT;
+					}
+
+{OR}				{
+						return OR;
+					}
+
+{LOCAL}				{
+						return LOCAL;
+					}
+
+{TRUE}				{
+						return TRUE;
+					}
+
+{FALSE}				{
+						return FALSE;
+					}
+
+{NIL}				{	
+						return NIL;
+					}
 
 
+{EQUAL}				{
+						return EQUAL;
+					}
+
+{PLUS}				{
+						return PLUS;
+					}
+	
+{MINUS}				{
+						return MINUS;
+					}
+
+{ASTERISK}			{
+						return ASTERISK;
+					}
+
+{DIVISION}			{
+						return DIVISION;
+					}
+
+{MODULO}			{
+						return MODULO;
+					}
+
+{COMPARISON}		{
+						return COMPARISON;
+					}
+
+{UNEQUAL}			{
+						return UNEQUAL;
+					}
+
+{PLUSPLUS}			{
+						return PLUSPLUS;
+					}
+
+{MINUSMINUS}		{
+						return MINUSMINUS;
+					}
+
+{GREATERTHAN}		{
+						return GREATERTHAN;
+					}
+
+{LESSTHAN}			{
+						return LESSTHAN;
+					}
+
+{GREATEREQUAL}		{
+						return GREATEREQUAL;
+					}
+
+{LESSEQUAL}			{
+						return LESSEQUAL;
+					}		
+
+
+{DIGIT}				{
+						return DIGIT;
+					}
+
+
+{REALDIGIT}			{
+						return REALDIGIT;
+					}
+
+
+{STRING}			{
+						return STRING;
+					}
+
+
+{SQBRACKETOPEN}		{
+						return SQBRACKETOPEN;
+					}
+
+{SQBRACKETCLOSE}	{
+						return SQBRACKETCLOSE;
+					}	
+
+{CURBRACKETOPEN}	{
+						return CURBRACKETOPEN;
+					}
+
+{CURBRACKETCLOSE} 	{
+						return CURBRACKETCLOSE;
+					}
+
+{PARENTHOPEN}		{
+						return PARENTHOPEN;
+					}
+
+{PARENTHCLOSE}		{
+						return PARENTHCLOSE;
+					}
+
+{SEMICOLON}			{
+						return SEMICOLON;
+					}
+
+{COMMA}				{
+						return COMMA;
+					}
+
+{COLON}				{
+						return COLON;
+					}
+
+{DOUBLECOLON}		{
+						return DOUBLECOLON;
+					}
+
+{DOT}				{
+						return DOT;
+					}
+
+{DOUBLEDOT}			{
+						return DOUBLEDOT;
+					}		
+
+
+{IDENTIFIER}		{
+						return IDENTIFIER;
+					}
+
+
+{SINGLECOM}			{
+						return SINGLECOM;
+					}
+
+{MULTICOM}			{
+						return MULTICOM;
+					}
+
+
+{WHITESPACE}		{
+						return WHITESPACE;
+					}
+
+
+{WRONGIDENT} 		{
+						return WRONGIDENT;
+					}
+					
 %%

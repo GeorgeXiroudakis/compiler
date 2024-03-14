@@ -1,6 +1,5 @@
 %{
-#include <iostream>
-#include "alpha_parser.hpp" 
+#include <stdio.h>
 int yyerror (char* yyProvideMessage);
 int yylex(void); 
 
@@ -28,7 +27,7 @@ program: IF
 %%
 
 
-int yyerror(const char *s) {
+int yyerror(char *s) {
     fprintf(stderr, "Error: %s\n", s);
     return 0;
 }
