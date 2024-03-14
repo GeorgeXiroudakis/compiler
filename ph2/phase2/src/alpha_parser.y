@@ -13,8 +13,6 @@ extern char* yytext;
 extern FILE* yyin;
 
 
-//typedef enum keywords { IF } keyword;
-
 %}
 
 %start program
@@ -52,8 +50,9 @@ program: IF IF{printf("found : %s and %s\n", $1, $2);}
 %%
 
 
-int yyerror(char *s) {
-    fprintf(stderr, "Error: %s\n", s);
+int yyerror(char *yyProvideMessage) {
+	fprintf(stderr, RED "%s: at line %d, before token: %s\n\n" RESET, yyProvideMessage, yylineno, yytext);
+    fprintf(stderr, RED "INPUT NOT VALID\n" RESET);
     return 0;
 }
 
