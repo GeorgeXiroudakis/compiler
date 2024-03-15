@@ -41,11 +41,166 @@ extern FILE* yyin;
 
 %token<idVal> IDENTIFIER WRONGIDENT
 
+%right		EQUAL
+%left		OR
+%left		AND
+%nonassoc	COMPARISON UNEQUAL
+%nonassoc	GREATERTHAN LESSTHAN GREATEREQUAL LESSEQUAL
+
+
+%left 		PLUS
+
+%left		ASTERISK DIVISION MODULO
+%right		NOT PLUSPLUS MINUSMINUS MINUS
+%left 		DOT DOUBLEDOT
+%left		SQBRACKETOPEN SQBRACKETCLOSE
+%left		PARENTHOPEN PARENTHCLOSE
+
+
 %%
 
-program: IF IF{printf("found : %s and %s\n", $1, $2);}
+program: stmt
+       | program stmt
+       ;
+
+stmt: expr SEMICOLON
+    | ifstmt 
+    | whilestmt
+    | forstmt
+    | returnstmt
+    | BREAK SEMICOLON
+    | CONTINUE SEMICOLON
+    | block
+    | funcdef
+    | SEMICOLON
+    ;
+
+expr: assignexpr
+    | expr op expr
+    | term
+    ;
+
+op: PLUS
+  | MINUS
+  | ASTERISK
+  | DIVISION
+  | MODULO
+  | GREATERTHAN
+  | GREATEREQUAL
+  | LESSTHAN
+  | LESSEQUAL
+  | COMPARISON
+  | UNEQUAL
+  | AND
+  | OR
+  ;
+
+term: PARENTHOPEN expr PARENTHCLOSE
+    | MINUS expr
+    | NOT expr
+    | PLUSPLUS lvalue
+    | lvalue PLUSPLUS
+    | MINUSMINUS lvalue
+    | lvalue MINUSMINUS
+    | primary
+    ;
+
+assignexpr: lvalue EQUAL expr
+	  ;
+
+primary: lvalue
+       | call
+       | objectdef
+       | PARENTHOPEN funcdef PARENTHCLOSE
+       | const
+       ;
+
+lvalue: IDENTIFIER
+      | LOCAL IDENTIFIER
+      | DOUBLECOLON IDENTIFIER
+      | member
+      ;
+
+member: lvalue DOT IDENTIFIER
+      | lvalue SQBRACKETOPEN expr SQBRACKETCLOSE
+      | call DOT IDENTIFIER
+      | call SQBRACKETOPEN expr SQBRACKETCLOSE
+      ;
+
+call: call PARENTHOPEN elist PARENTHCLOSE
+    | lvalue callsuffix
+    | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE
+    ;
+
+callsuffix: normcall
+	  | methodcall
+	  ;
+
+normcall: PARENTHOPEN elist PARENTHCLOSE
+	;
+
+methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE
+	  ;
+
+elist: expr 
+     | COMMA elist 
+     |
+     ;
+
+objectdef: SQBRACKETOPEN  SQBRACKETCLOSE
+	 | SQBRACKETOPEN elist SQBRACKETCLOSE
+	 | SQBRACKETOPEN indexed SQBRACKETCLOSE
+	 ;
+
+indexed: indexedelem
+       | COMMA indexed
        |
        ;
+
+indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE
+	   ;
+
+block: CURBRACKETOPEN stmt_list CURBRACKETCLOSE
+     ;
+
+stmt_list: stmt
+	 | stmt stmt_list
+	 |
+	 ;
+
+funcdef: FUNCTION IDENTIFIER PARENTHOPEN idlist PARENTHCLOSE block
+       | FUNCTION PARENTHOPEN idlist PARENTHCLOSE block
+       ;
+
+const: number
+     | STRING
+     | NIL
+     | TRUE
+     | FALSE
+     ;
+
+number: INTEGER
+      | REAL
+      ;
+
+idlist: IDENTIFIER
+      | COMMA idlist
+      |
+      ;
+
+ifstmt: IF PARENTHOPEN expr PARENTHCLOSE
+      | IF PARENTHOPEN expr PARENTHCLOSE ELSE stmt
+      ;
+
+whilestmt: WHILE PARENTHOPEN expr PARENTHCLOSE stmt
+	 ;
+
+forstmt: FOR PARENTHOPEN elist SEMICOLON expr SEMICOLON elist PARENTHCLOSE stmt
+       ;
+
+returnstmt: RETURN SEMICOLON
+	  | RETURN expr SEMICOLON
+	  ;
 
 %%
 
