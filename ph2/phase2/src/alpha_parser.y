@@ -27,6 +27,8 @@ extern FILE* yyin;
 	double	realVal;
 }
 
+
+
 %token<keywordVal> IF ELSE WHILE FOR FUNCTION RETURN BREAK CONTINUE AND NOT OR LOCAL TRUE FALSE NIL
 
 %token<operatorVal> EQUAL PLUS MINUS ASTERISK DIVISION MODULO COMPARISON UNEQUAL PLUSPLUS MINUSMINUS GREATERTHAN LESSTHAN GREATEREQUAL LESSEQUAL
@@ -40,6 +42,8 @@ extern FILE* yyin;
 %token<doubleVal> REAL
 
 %token<idVal> IDENTIFIER WRONGIDENT
+
+
 
 %right		EQUAL
 %left		OR
@@ -55,7 +59,6 @@ extern FILE* yyin;
 %left 		DOT DOUBLEDOT
 %left		SQBRACKETOPEN SQBRACKETCLOSE
 %left		PARENTHOPEN PARENTHCLOSE
-
 
 %%
 
@@ -76,11 +79,11 @@ stmt: expr SEMICOLON
     ;
 
 expr: assignexpr
-    | expr op expr
+    | expr op expr %prec PLUS
     | term
     ;
 
-op: PLUS
+op: PLUS 
   | MINUS
   | ASTERISK
   | DIVISION
@@ -143,19 +146,17 @@ methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE
 	  ;
 
 elist: expr 
-     | COMMA elist 
-     |
+     | elist COMMA expr
      ;
+
+indexed: indexedelem
+        | indexed COMMA indexedelem
+        ;
 
 objectdef: SQBRACKETOPEN  SQBRACKETCLOSE
 	 | SQBRACKETOPEN elist SQBRACKETCLOSE
 	 | SQBRACKETOPEN indexed SQBRACKETCLOSE
 	 ;
-
-indexed: indexedelem
-       | COMMA indexed
-       |
-       ;
 
 indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE
 	   ;
@@ -184,7 +185,7 @@ number: INTEGER
       ;
 
 idlist: IDENTIFIER
-      | COMMA idlist
+      | idlist COMMA IDENTIFIER
       |
       ;
 
