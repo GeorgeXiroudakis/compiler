@@ -4,10 +4,13 @@ PP = g++
 
 all = alpha_parser
 
-alpha_parser: src/alpha_parser.o src/alpha_lexical_analyzer.o
+alpha_parser: src/alpha_parser.o src/alpha_lexical_analyzer.o src/symtable.o
 	$(CC) $^ -o $@ 
 
-src/alpha_lexical_analyzer.o: src/alpha_lexical_analyzer.c src/alpha_parser.h
+src/symtable.o: src/lib/symtable.c
+	$(CC) -c $^ -o $@ 
+
+src/alpha_lexical_analyzer.o: src/alpha_lexical_analyzer.c src/alpha_parser.h src/lib/symtable.h
 	$(CC) -c $< -o $@
 
 
