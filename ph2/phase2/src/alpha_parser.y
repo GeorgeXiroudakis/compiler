@@ -1,17 +1,64 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+#include "lib/symtable.h"
 
 #define RESET   "\033[0m"
 #define RED     "\033[31m"
 
 int yyerror (char* yyProvideMessage);
 int yylex(void); 
+void makeLibEntry(char *name);
+void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 
 extern int yylineno;
 extern char* yytext;
 extern FILE* yyin;
 
+SymTable_T symbolTable;
+
+typedef struct Variable{
+
+	const char *name;
+	unsigned int scope;
+	unsigned int line;
+}Variable;
+
+typedef struct Function{
+	
+	const char *name;
+	unsigned int scope;
+	unsigned int line;
+}Function;
+
+enum SymbolType{
+	global, local, formal, userfunc, libfunc
+};
+
+typedef struct SymbolTableEntry{
+	
+	short int isActive;
+	union {
+		Variable *varVal;
+		Function *funcVal;
+	}value;
+	enum SymbolType type;
+}SymbolTableEntry;
+
+typedef struct scopeListNode{
+    SymbolTableEntry *entry;
+    struct scopeListNode *next;
+}scopeListNode_t;
+
+typedef struct ScopeArray{
+    scopeListNode_t *head;
+    scopeListNode_t *tail;
+} ScopeArray_t;
+
+ScopeArray_t **ScopeLists;    //pinakas me listes me index ta scopes
+
+void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 
 %}
 
@@ -217,6 +264,32 @@ int yyerror(char *yyProvideMessage) {
 
 int main(int argc, char **argv) {
 	FILE *inputFile;
+    int line = 0;
+	
+    symbolTable = SymTable_new();
+	
+	assert(symbolTable);
+
+    makeLibEntry("print");
+    makeLibEntry("input");
+    makeLibEntry("objectmemberkeys");
+    makeLibEntry("objecttotalmembers");
+    makeLibEntry("objectcopy");
+    makeLibEntry("totalarguments");
+    makeLibEntry("argument");
+    makeLibEntry("typeof");
+    makeLibEntry("strtonum");
+    makeLibEntry("sqrt");
+    makeLibEntry("cos");
+    makeLibEntry("sin");
+
+	SymbolTableEntry *temp;
+    
+    temp = malloc(sizeof(SymbolTableEntry));
+	
+	temp = (SymbolTableEntry *) SymTable_get(symbolTable, "print");
+
+    SymTable_map(symbolTable, printEntry, NULL);
 
 	if(argc > 2){
 		fprintf(stderr, RED "Wrong call of alpha_parser\ncall with one optional command line argument (the file to analyze)\n" RESET);
@@ -239,3 +312,52 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+void makeLibEntry(char *name){
+
+    SymbolTableEntry *entry;
+    Function *f;
+
+    f = malloc(sizeof(Function));
+
+	f->name = name;
+	f->scope = 0;
+	f->line = 0;
+
+    entry = malloc(sizeof(SymbolTableEntry));
+
+    assert(entry);
+
+	entry->isActive = 1;
+	entry->value.funcVal = f;
+	entry->type = libfunc;
+
+    SymTable_put(symbolTable, f->name, entry);
+
+    printf("Entry done\n");
+
+}
+
+void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
+	
+	if(newNode == NULL) {
+		perror("newNode == NULL\n");
+	}	
+	
+	if(scope == NULL){
+		scope->head = newNode;
+        scope->tail = newNode;
+		return;
+	}
+	
+	scope->tail->next = newNode;
+    scope->tail = newNode;
+
+}
+
+void printEntry(const char *pcKey, void *pvValue, void *pvExtra){
+    printf("%s\n", pcKey);
+}
+
+
+/*TODO na ftia3oume sunarthsh pou na ftiaxnei to scopeListNode kai na
+pairnei xwro an xreiazetai sto ScopeArray*/ 
