@@ -6,6 +6,8 @@
 
 #define RESET   "\033[0m"
 #define RED     "\033[31m"
+#define unionVar   0
+#define unionFunc  1
 
 int yyerror (char* yyProvideMessage);
 int yylex(void); 
@@ -39,6 +41,7 @@ enum SymbolType{
 typedef struct SymbolTableEntry{
 	
 	short int isActive;
+	short int unionType;
 	union {
 		Variable *varVal;
 		Function *funcVal;
@@ -58,8 +61,14 @@ typedef struct ScopeArray{
 
 ScopeArray_t **ScopeLists;    //pinakas me listes me index ta scopes
 
+void insertToSymTable(int scope, const char *name, SymbolTableEntry *newEntry);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
+void hidetoken(char *name);
+void printScopeLists();
 
+int scopeLength = 0;
+int scopeCapacity = 0;
+int currScope = 0;
 %}
 
 %start program
@@ -267,8 +276,14 @@ int main(int argc, char **argv) {
     int line = 0;
 	
     symbolTable = SymTable_new();
+	ScopeLists = malloc(sizeof(ScopeArray_t *));
+	assert(symbolTable || ScopeLists);
 	
-	assert(symbolTable);
+	scopeCapacity++;
+
+	ScopeLists[currScope] = malloc(sizeof(scopeListNode_t));
+    ScopeLists[currScope]->head = NULL;
+    ScopeLists[currScope]->tail = NULL;
 
     makeLibEntry("print");
     makeLibEntry("input");
@@ -283,13 +298,21 @@ int main(int argc, char **argv) {
     makeLibEntry("cos");
     makeLibEntry("sin");
 
-	SymbolTableEntry *temp;
+    currScope++;
+    makeLibEntry("tan");
+    makeLibEntry("arctan");
     
-    temp = malloc(sizeof(SymbolTableEntry));
-	
-	temp = (SymbolTableEntry *) SymTable_get(symbolTable, "print");
+    currScope++;
+    makeLibEntry("Giwrgos");
+    makeLibEntry("Tonis");
+    makeLibEntry("Gaby");
+    makeLibEntry("print");
 
+    
+    printScopeLists();
+    
     SymTable_map(symbolTable, printEntry, NULL);
+    
 
 	if(argc > 2){
 		fprintf(stderr, RED "Wrong call of alpha_parser\ncall with one optional command line argument (the file to analyze)\n" RESET);
@@ -320,7 +343,7 @@ void makeLibEntry(char *name){
     f = malloc(sizeof(Function));
 
 	f->name = name;
-	f->scope = 0;
+	f->scope = currScope;
 	f->line = 0;
 
     entry = malloc(sizeof(SymbolTableEntry));
@@ -328,13 +351,44 @@ void makeLibEntry(char *name){
     assert(entry);
 
 	entry->isActive = 1;
+	entry->unionType = unionFunc;
 	entry->value.funcVal = f;
 	entry->type = libfunc;
 
-    SymTable_put(symbolTable, f->name, entry);
+    insertToSymTable(currScope, f->name, entry);
 
-    printf("Entry done\n");
+}
 
+/*pre-condition, the newEntry has not already been inserted in the symtable*/
+void insertToSymTable(int scope, const char *name, SymbolTableEntry *newEntry){
+    int oldCapacity = scopeCapacity;
+    scopeListNode_t *p;
+
+    /*inserting to symbol table*/
+    SymTable_put(symbolTable, name, newEntry);
+
+    /*inserting to scope list*/
+    while(scopeCapacity <= scope){       /*if the scope is outside of arrays length reallocate space*/
+        scopeCapacity *= 2;
+        ScopeLists = realloc(ScopeLists, scopeCapacity * sizeof(ScopeArray_t *));
+
+        for(int i = oldCapacity; i < scopeCapacity; i++){
+        	ScopeLists[i] = malloc(sizeof(scopeListNode_t *));
+        	ScopeLists[i]->head = NULL;
+        	ScopeLists[i]->tail = NULL;
+        }
+
+        oldCapacity = scopeCapacity;
+    }
+
+    scopeLength = scope;
+
+    p = malloc(sizeof(scopeListNode_t));
+
+    p->entry = newEntry;
+    p->next = NULL;
+    insertToScopeList(ScopeLists[scope], p);
+		
 }
 
 void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
@@ -343,21 +397,68 @@ void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
 		perror("newNode == NULL\n");
 	}	
 	
-	if(scope == NULL){
+	if(scope->head == NULL){
 		scope->head = newNode;
         scope->tail = newNode;
 		return;
 	}
-	
+
+	assert(scope->tail);
 	scope->tail->next = newNode;
     scope->tail = newNode;
 
 }
 
+
+void hidetoken(char *name){
+
+}
+
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra){
-    printf("%s\n", pcKey);
+    if( ((SymbolTableEntry *) pvValue)->isActive == 1){
+	printf("%s\n", pcKey);
+    }
+}
+
+void printScopeLists(){
+	scopeListNode_t *p;
+	
+	for(int i = 0; i < scopeLength+1; i++){
+		printf("-----------      Scope #%d      -----------\n", i);
+		p = ScopeLists[i]->head;
+		while(p != NULL){
+			printf("\"%s\" ", p->entry->value.funcVal->name);
+			switch (p->entry->type){
+				case global:
+					printf("[global variable] ");
+					break;
+				case local:
+					printf("[local variable] ");
+					break;
+				case formal:
+					printf("[formal argument] ");
+					break;
+				case userfunc:
+					printf("[user function] ");
+					break;
+				case libfunc:
+					printf("[library function] ");
+					break;
+				default:
+					printf("[unknown type] ");
+					break;
+			}
+			
+			if(p->entry->unionType == unionVar)
+				printf("(line %d) (scope %d)\n", p->entry->value.varVal->line, p->entry->value.varVal->scope);
+			else 
+				printf("(line %d) (scope %d)\n", p->entry->value.varVal->line, p->entry->value.varVal->scope);
+			
+				
+			p = p->next;
+		}
+		printf("\n");
+	}
 }
 
 
-/*TODO na ftia3oume sunarthsh pou na ftiaxnei to scopeListNode kai na
-pairnei xwro an xreiazetai sto ScopeArray*/ 
