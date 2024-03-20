@@ -11,25 +11,26 @@
 
 int yyerror (char* yyProvideMessage);
 int yylex(void); 
-void makeLibEntry(char *name);
-void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 
 extern int yylineno;
 extern char* yytext;
 extern FILE* yyin;
 
+int scopeLength = 0;
+int scopeCapacity = 0;
+int currScope = 0;
+
 SymTable_T symbolTable;
 
 typedef struct Variable{
-
 	const char *name;
 	unsigned int scope;
 	unsigned int line;
 }Variable;
 
 typedef struct Function{
-	
 	const char *name;
+    //TODO add list of argguments
 	unsigned int scope;
 	unsigned int line;
 }Function;
@@ -39,7 +40,6 @@ enum SymbolType{
 };
 
 typedef struct SymbolTableEntry{
-	
 	short int isActive;
 	short int unionType;
 	union {
@@ -47,12 +47,12 @@ typedef struct SymbolTableEntry{
 		Function *funcVal;
 	}value;
 	enum SymbolType type;
-}SymbolTableEntry;
+} SymbolTableEntry;
 
 typedef struct scopeListNode{
     SymbolTableEntry *entry;
     struct scopeListNode *next;
-}scopeListNode_t;
+} scopeListNode_t;
 
 typedef struct ScopeArray{
     scopeListNode_t *head;
@@ -61,14 +61,15 @@ typedef struct ScopeArray{
 
 ScopeArray_t **ScopeLists;    //pinakas me listes me index ta scopes
 
-void insertToSymTable(int scope, const char *name, SymbolTableEntry *newEntry);
+/*our functions*/
+void makeLibEntry(char *name);
+void makeVariableEntry(char *name, enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
-void hidetoken(char *name);
+void insertToSymTable(int scope, const char *name, SymbolTableEntry *newEntry);
+void hideToken(char *name);
+void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 void printScopeLists();
 
-int scopeLength = 0;
-int scopeCapacity = 0;
-int currScope = 0;
 %}
 
 %start program
@@ -269,8 +270,6 @@ int yyerror(char *yyProvideMessage) {
 }
 
 
-
-
 int main(int argc, char **argv) {
 	FILE *inputFile;
     int line = 0;
@@ -304,12 +303,17 @@ int main(int argc, char **argv) {
     
     currScope++;
     makeLibEntry("Giwrgos");
+    makeVariableEntry("Xiru", local);
     makeLibEntry("Tonis");
     makeLibEntry("Gaby");
     makeLibEntry("print");
 
+    currScope--;
+    makeVariableEntry("Chadvidhs", global);
     
     printScopeLists();
+
+    hideToken("arctan");
     
     SymTable_map(symbolTable, printEntry, NULL);
     
@@ -359,6 +363,47 @@ void makeLibEntry(char *name){
 
 }
 
+void makeVariableEntry(char *name, enum SymbolType type){
+    SymbolTableEntry *entry;
+    Variable *v;
+
+    v = malloc(sizeof(Variable));
+
+	v->name = name;
+	v->scope = currScope;
+	v->line = yylineno;
+
+    entry = malloc(sizeof(SymbolTableEntry));
+
+    assert(entry);
+
+	entry->isActive = 1;
+	entry->unionType = unionVar;
+	entry->value.varVal = v;
+	entry->type = type;
+
+    insertToSymTable(currScope, v->name, entry);
+}
+
+void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
+	
+	if(newNode == NULL) {
+		perror("newNode == NULL\n");
+	}	
+	
+	if(scope->head == NULL){
+		scope->head = newNode;
+        scope->tail = newNode;
+		return;
+	}
+
+	assert(scope->tail);
+	scope->tail->next = newNode;
+    scope->tail = newNode;
+
+}
+
+
 /*pre-condition, the newEntry has not already been inserted in the symtable*/
 void insertToSymTable(int scope, const char *name, SymbolTableEntry *newEntry){
     int oldCapacity = scopeCapacity;
@@ -381,7 +426,9 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry *newEntry){
         oldCapacity = scopeCapacity;
     }
 
-    scopeLength = scope;
+    if(scopeLength < scope){
+        scopeLength = scope;
+    }
 
     p = malloc(sizeof(scopeListNode_t));
 
@@ -391,32 +438,20 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry *newEntry){
 		
 }
 
-void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
-	
-	if(newNode == NULL) {
-		perror("newNode == NULL\n");
-	}	
-	
-	if(scope->head == NULL){
-		scope->head = newNode;
-        scope->tail = newNode;
-		return;
-	}
 
-	assert(scope->tail);
-	scope->tail->next = newNode;
-    scope->tail = newNode;
+void hideToken(char *name){
+    SymbolTableEntry *tokenToHide;
 
-}
+    tokenToHide = SymTable_get(symbolTable, name);
 
-
-void hidetoken(char *name){
-
+    tokenToHide->isActive = 0;
 }
 
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra){
     if( ((SymbolTableEntry *) pvValue)->isActive == 1){
-	printf("%s\n", pcKey);
+	    printf("%s\n", pcKey);
+    } else {
+        //printf("Hidden token: %s\n", pcKey);
     }
 }
 
