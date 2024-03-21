@@ -26,7 +26,7 @@ void makeLibEntry(char *name);
 void makeVariableEntry(char *name, enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
-void hideToken(char *name);
+void hideScope(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 void printScopeLists();
 
@@ -136,7 +136,7 @@ primary: lvalue
        ;
 
 lvalue: IDENTIFIER
-      | LOCAL IDENTIFIER
+      | LOCAL IDENTIFIER	{ makeVariableEntry($2,local); printf("Entered token %s\n",$2);}     
       | DOUBLECOLON IDENTIFIER
       | member
       ;
@@ -178,7 +178,7 @@ objectdef: SQBRACKETOPEN  SQBRACKETCLOSE
 indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE
 	   ;
 
-block: CURBRACKETOPEN stmt_list CURBRACKETCLOSE
+block: CURBRACKETOPEN {currScope++;} stmt_list  CURBRACKETCLOSE {hideScope(currScope);currScope--;}
      ;
 
 stmt_list: stmt
@@ -237,51 +237,44 @@ int yylex(void) {
 
 int main(int argc, char **argv) {
 	FILE *inputFile;
-    int line = 0;
+    	int line = 0;
 	
-    symbolTable = SymTable_new();
+    	symbolTable = SymTable_new();
 	ScopeLists = malloc(sizeof(ScopeArray_t *));
 	assert(symbolTable || ScopeLists);
 	
 	scopeCapacity++;
 
 	ScopeLists[currScope] = malloc(sizeof(scopeListNode_t));
-    ScopeLists[currScope]->head = NULL;
-    ScopeLists[currScope]->tail = NULL;
+    	ScopeLists[currScope]->head = NULL;
+    	ScopeLists[currScope]->tail = NULL;
 
-    makeLibEntry("print");
-    makeLibEntry("input");
-    makeLibEntry("objectmemberkeys");
-    makeLibEntry("objecttotalmembers");
-    makeLibEntry("objectcopy");
-    makeLibEntry("totalarguments");
-    makeLibEntry("argument");
-    makeLibEntry("typeof");
-    makeLibEntry("strtonum");
-    makeLibEntry("sqrt");
-    makeLibEntry("cos");
-    makeLibEntry("sin");
+    	makeLibEntry("print");
+    	makeLibEntry("input");
+    	makeLibEntry("objectmemberkeys");
+    	makeLibEntry("objecttotalmembers");
+    	makeLibEntry("objectcopy");
+    	makeLibEntry("totalarguments");
+    	makeLibEntry("argument");
+    	makeLibEntry("typeof");
+    	makeLibEntry("strtonum");
+    	makeLibEntry("sqrt");
+    	makeLibEntry("cos");
+    	makeLibEntry("sin");
 
-    currScope++;
-    makeLibEntry("tan");
-    makeLibEntry("arctan");
+    	currScope++;
+    	makeLibEntry("tan");
+    	makeLibEntry("arctan");
     
-    currScope++;
-    makeLibEntry("Giwrgos");
-    makeVariableEntry("Xiru", local);
-    makeLibEntry("Tonis");
-    makeLibEntry("Gaby");
-	hideToken("print");
-    makeLibEntry("print");
+    	currScope++;
+    	makeLibEntry("Giwrgos");
+    	makeVariableEntry("Xiru", local);
+    	makeLibEntry("Tonis");
+    	makeLibEntry("Gaby");
 
-    currScope--;
-    makeVariableEntry("Chadvidhs", global);
+    	currScope--;
+    	makeVariableEntry("Chadvidhs", global);
 	makeVariableEntry("Chadvidhs", global);
-    
-    printScopeLists();
-
-    
-    SymTable_map(symbolTable, printEntry, NULL);
     
 
 	if(argc > 2){
@@ -300,32 +293,38 @@ int main(int argc, char **argv) {
 		yyin = stdin;
    
 
-    yyparse();
+    	yyparse();
+    	
+	//hideScope(2);
 
-    return 0;
+	printScopeLists();
+	SymTable_map(symbolTable,printEntry,NULL);
+
+    	return 0;
 }
+
 
 void makeLibEntry(char *name){
 
-    SymbolTableEntry_t *entry;
-    Function_t *f;
+    	SymbolTableEntry_t *entry;
+    	Function_t *f;
 
-    f = malloc(sizeof(Function_t));
+    	f = malloc(sizeof(Function_t));
 
 	f->name = name;
 	f->scope = currScope;
 	f->line = 0;
 
-    entry = malloc(sizeof(SymbolTableEntry_t));
+    	entry = malloc(sizeof(SymbolTableEntry_t));
 
-    assert(entry);
+    	assert(entry);
 
 	entry->isActive = 1;
 	entry->unionType = unionFunc;
 	entry->value.funcVal = f;
 	entry->type = libfunc;
 
-    insertToSymTable(currScope, f->name, entry);
+    	insertToSymTable(currScope, f->name, entry);
 
 }
 
@@ -365,7 +364,7 @@ void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
 
 	assert(scope->tail);
 	scope->tail->next = newNode;
-    scope->tail = newNode;
+    	scope->tail = newNode;
 
 }
 
@@ -408,12 +407,22 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
 }
 
 
-void hideToken(char *name){
-    SymbolTableEntry_t *tokenToHide;
+/*Hides all tokens of the given scope*/
+void hideScope(int scope){
+    scopeListNode_t *p = ScopeLists[scope]->head;
 
-    tokenToHide = SymTable_get(symbolTable, name);
+	if(scope == 0){
+		return;
+	}
 
-    tokenToHide->isActive = 0;
+    	if(p == NULL){
+    		return;
+    	}
+
+	while(p != NULL){
+		p->entry->isActive = 0;
+		p = p->next;
+	}
 }
 
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra){
