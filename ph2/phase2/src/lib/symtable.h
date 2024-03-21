@@ -1,3 +1,6 @@
+#include "definitions.h"
+
+
 typedef struct symtable_s* SymTable_T;
 
 struct symtable_s;

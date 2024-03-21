@@ -30,21 +30,7 @@ struct symtable_s{
 
 
 
-/*simple power function for power to be used in the rehasing*/
-/*static unsigned int power(unsigned int base, unsigned int exponent){
-	unsigned int res;
 
-	assert(base != 0);
-	assert(exponent != 0);
-
-	res = 1;
-	for(; exponent > 0; exponent--) res *= base;
-	return res;	
-}
-
-static int calc_capacitiy(int exponent){
-	return power(2, exponent) - 1;
-}*/
 
 static unsigned int new_capacity_calc(unsigned int old_capacity){
 	if(old_capacity == 509) return 1021; 
@@ -344,7 +330,7 @@ int SymTable_contains(SymTable_T oSymTable, const char *pcKey){
 	for(i = 0; i < oSymTable->capacity; i++){
 		list = table[i].head;
 		while(list != NULL){
-			if(strcmp(list->key, pcKey) == 0) return 1; 
+			if( (strcmp(list->key, pcKey) == 0) && ( ((SymbolTableEntry_t *)list->value)->isActive == 1) )return 1; 
 			
 			list = list->next;
 		}
@@ -373,8 +359,8 @@ void *SymTable_get(SymTable_T oSymTable, const char *pcKey){
 	list = table[slot].head;
 	
 	while(list != NULL){
-		if(strcmp(list->key, pcKey) == 0) return list->value;
-
+		if( (strcmp(list->key, pcKey) == 0) && ( ((SymbolTableEntry_t *)list->value)->isActive == 1) )return list->value; 
+		
 		list = list->next;
 	}	
 	return NULL;
