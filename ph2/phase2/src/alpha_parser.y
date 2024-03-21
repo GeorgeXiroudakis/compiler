@@ -7,7 +7,8 @@
 
 
 int yyerror (char* yyProvideMessage);
-int yylex(void); 
+extern int alpha_yylex(void); 
+extern int yylex(void); 
 
 extern int yylineno;
 extern char* yytext;
@@ -226,6 +227,11 @@ int yyerror(char *yyProvideMessage) {
 	fprintf(stderr, RED "%s: at line %d, before token: %s\n\n" RESET, yyProvideMessage, yylineno, yytext);
     fprintf(stderr, RED "INPUT NOT VALID\n" RESET);
     return 0;
+}
+
+
+int yylex(void) {
+    return alpha_yylex(); 
 }
 
 

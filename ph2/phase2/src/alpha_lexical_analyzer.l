@@ -6,16 +6,12 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define YY_DECL int yylex(void)
+#define YY_DECL int alpha_yylex(void)
 
 #define RESET   "\033[0m"
 #define RED     "\033[31m"
 
-
-
 unsigned int tokencounter = 1;
-
-
 
 %}
 
