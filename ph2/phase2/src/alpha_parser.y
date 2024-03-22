@@ -24,8 +24,10 @@ ScopeArray_t **ScopeLists;    //pinakas me listes me index ta scopes
 /*our functions*/
 void makeLibEntry(char *name);
 void makeVariableEntry(char *name, enum SymbolType type);
+void makeFuncEntry(char *name,enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
+int  scopeLookUp(int scope,char* key);
 void hideScope(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 void printScopeLists();
@@ -42,6 +44,7 @@ void printScopeLists();
     	char* 	operatorVal;
 	int 	intVal;
 	double	realVal;
+	//SymbolTableEntry_t *exprNode; /*ATTENZIONE*/
 }
 
 
@@ -59,6 +62,11 @@ void printScopeLists();
 %token<doubleVal> REAL
 
 %token<idVal> IDENTIFIER WRONGIDENT
+
+
+/*To be checked*/
+%type<idVal> lvalue member expr call /*Added dis just to compile :3*/
+
 
 
 
@@ -125,7 +133,7 @@ term: PARENTHOPEN expr PARENTHCLOSE
     | primary
     ;
 
-assignexpr: lvalue EQUAL expr
+assignexpr: lvalue EQUAL expr {printf("lvalue =  %s\n",$1);}
 	  ;
 
 primary: lvalue
@@ -135,9 +143,9 @@ primary: lvalue
        | const
        ;
 
-lvalue: IDENTIFIER
-      | LOCAL IDENTIFIER	{ makeVariableEntry($2,local); printf("Entered token %s\n",$2);}     
-      | DOUBLECOLON IDENTIFIER
+lvalue: IDENTIFIER		{(currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);}
+      | LOCAL IDENTIFIER	{makeVariableEntry($2,local); printf("Entered token %s\n",$2);}     
+      | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == 0) ? yyerror("Global Variable not found") : ($$ = $2);}
       | member
       ;
 
@@ -178,7 +186,7 @@ objectdef: SQBRACKETOPEN  SQBRACKETCLOSE
 indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE
 	   ;
 
-block: CURBRACKETOPEN {currScope++;} stmt_list  CURBRACKETCLOSE {hideScope(currScope);currScope--;}
+block: CURBRACKETOPEN {currScope++;} stmt_list  CURBRACKETCLOSE {printf("Current Scope is %d\n",currScope);hideScope(currScope);currScope--;}
      ;
 
 stmt_list: stmt
@@ -186,7 +194,7 @@ stmt_list: stmt
 	 |
 	 ;
 
-funcdef: FUNCTION IDENTIFIER PARENTHOPEN idlist PARENTHCLOSE block
+funcdef: FUNCTION IDENTIFIER {makeFuncEntry($2,userfunc);printf("%s\n",$2);currScope++;} PARENTHOPEN idlist {currScope--;} PARENTHCLOSE block
        | FUNCTION PARENTHOPEN idlist PARENTHCLOSE block
        ;
 
@@ -201,8 +209,8 @@ number: INTEGER
       | REAL
       ;
 
-idlist: IDENTIFIER
-      | idlist COMMA IDENTIFIER
+idlist: IDENTIFIER {makeVariableEntry($1,formal);printf("Added Argument: %s\n",$1);}
+      | idlist COMMA IDENTIFIER {makeVariableEntry($3,formal);printf("Added another Argument: %s\n",$3);}
       |
       ;
 
@@ -275,7 +283,8 @@ int main(int argc, char **argv) {
     	currScope--;
     	makeVariableEntry("Chadvidhs", global);
 	makeVariableEntry("Chadvidhs", global);
-    
+   	
+	currScope--;
 
 	if(argc > 2){
 		fprintf(stderr, RED "Wrong call of alpha_parser\ncall with one optional command line argument (the file to analyze)\n" RESET);
@@ -329,25 +338,47 @@ void makeLibEntry(char *name){
 }
 
 void makeVariableEntry(char *name, enum SymbolType type){
-    SymbolTableEntry_t *entry;
-    Variable_t *v;
+    	SymbolTableEntry_t *entry;
+    	Variable_t *v;
 
-    v = malloc(sizeof(Variable_t));
+    	v = malloc(sizeof(Variable_t));
 
 	v->name = name;
 	v->scope = currScope;
 	v->line = yylineno;
 
-    entry = malloc(sizeof(SymbolTableEntry_t));
+    	entry = malloc(sizeof(SymbolTableEntry_t));
 
-    assert(entry);
+    	assert(entry);
 
 	entry->isActive = 1;
 	entry->unionType = unionVar;
 	entry->value.varVal = v;
 	entry->type = type;
 
-    insertToSymTable(currScope, v->name, entry);
+    	insertToSymTable(currScope, v->name, entry);
+}
+
+void makeFuncEntry(char *name,enum SymbolType type){
+	SymbolTableEntry_t *entry;
+	Function_t *f;
+	
+	f = malloc(sizeof(Function_t));
+
+	f->name = name;
+	f->scope = currScope;
+	f->line = yylineno;
+
+	entry = malloc(sizeof(SymbolTableEntry_t));
+
+	assert(entry);
+
+	entry->isActive = 1;
+	entry->unionType = unionFunc;
+	entry->value.funcVal = f;
+	entry->type = type;
+
+	insertToSymTable(currScope,f->name,entry);
 }
 
 void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
@@ -406,6 +437,30 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
 		
 }
 
+/*Function that returns 0 if token is not found and 1 if found*/
+int scopeLookUp(int scope,char* key){
+	scopeListNode_t *p = ScopeLists[scope]->head;
+	
+	if(p == NULL){
+		return 0;
+	}
+
+	while(p != NULL){
+		if(p->entry->unionType == unionVar){
+			if(strcmp(p->entry->value.varVal->name,key) == 0){
+				return 1;
+			}
+		}else{
+			if(strcmp(p->entry->value.funcVal->name,key) == 0){
+				return 1;
+			}
+		}
+		p = p->next;
+	}
+	/*Not found*/
+	return 0;
+}
+
 
 /*Hides all tokens of the given scope*/
 void hideScope(int scope){
@@ -429,7 +484,7 @@ void printEntry(const char *pcKey, void *pvValue, void *pvExtra){
     if( ((SymbolTableEntry_t *) pvValue)->isActive == 1){
 	    printf("%s\n", pcKey);
     } else {
-        //printf("Hidden token: %s\n", pcKey);
+        printf("Hidden token: %s\n", pcKey);
     }
 }
 
