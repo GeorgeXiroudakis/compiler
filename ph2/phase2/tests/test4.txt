@@ -1,1 +1,2 @@
-local x = 12;
+x = 2;
+function f(y,z,h) {k; ::x = 5;}
