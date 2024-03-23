@@ -19,7 +19,7 @@ typedef struct FunctArgNode{
 
 typedef struct Function{
 	const char *name;
-
+	FunctArgNode_t *arglist;
 	unsigned int scope;
 	unsigned int line;
 }Function_t;

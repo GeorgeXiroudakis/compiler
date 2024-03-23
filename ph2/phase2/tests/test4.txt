@@ -1,2 +1,12 @@
 x = 2;
-function f(y,z,h) {k; ::x = 5;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}

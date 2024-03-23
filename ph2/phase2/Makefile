@@ -5,20 +5,20 @@ PP = g++
 all = alpha_parser
 
 alpha_parser: src/alpha_parser.o src/alpha_lexical_analyzer.o src/symtable.o
-	$(CC) $^ -o $@ 
+	$(CC) -g $^ -o $@ 
 
 src/symtable.o: src/lib/symtable.c src/lib/definitions.h
-	$(CC) -c $< -o $@ 
+	$(CC) -g -c $< -o $@ 
 
 src/alpha_lexical_analyzer.o: src/alpha_lexical_analyzer.c src/alpha_parser.h src/lib/symtable.h
-	$(CC) -c $< -o $@
+	$(CC) -g -c $< -o $@
 
 
 src/alpha_lexical_analyzer.c: src/alpha_lexical_analyzer.l
 	flex --outfile=$@ $<
 
 src/alpha_parser.o: src/alpha_parser.c
-	$(CC) -c $^ -o $@
+	$(CC) -g -c $^ -o $@
 
 
 src/alpha_parser.c: src/alpha_parser.y src/lib/symtable.h
