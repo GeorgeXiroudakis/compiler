@@ -29,7 +29,7 @@ void makeVariableEntry(char *name, enum SymbolType type);
 void makeFuncEntry(char *name,enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
-void makeFuncArgList(FunctArgNode_t* f,int scope);
+FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f,int scope);
 int  scopeLookUp(int scope,char* key);
 void hideScope(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
@@ -48,7 +48,7 @@ void printScopeLists();
     	char* 	operatorVal;
 	int 	intVal;
 	double	realVal;
-	//SymbolTableEntry_t *exprNode; /*ATTENZIONE*/
+	struct	SymbolTableEntry* exprNode; 
 }
 
 
@@ -361,7 +361,7 @@ void makeFuncEntry(char *name,enum SymbolType type){
 	f->line = yylineno;
 	f->arglist = NULL;
 
-	makeFuncArgList(f->arglist,currScope);
+	f->arglist = makeFuncArgList(f->arglist,currScope);
 
 	entry = malloc(sizeof(SymbolTableEntry_t));
 
@@ -433,36 +433,35 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
 }
 
 /*Function that adds the arguments of the function to the function list (scope is + 1 because the arguments have a + 1 scope unlike the function*/
-void makeFuncArgList(FunctArgNode_t* f, int scope){
+FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 	scopeListNode_t *p = ScopeLists[scope + 1]->head;
-	FunctArgNode_t* temp = f;
+	FunctArgNode_t* head = f;
 
 	while(p != NULL){
 		if((p->entry->isActive == 1) && (p->entry->type == formal)){
-			FunctArgNode_t* node;
-	
-			node = malloc(sizeof(FunctArgNode_t));
-			node->arg = p->entry;
-			node->next = NULL;
-	
-			if(temp == NULL){
-				temp = node;
-				f = temp;
-				p = p->next;
-				printf("grgrgr%s\n",f->arg->value.varVal->name);
-				continue;
-			}
+				FunctArgNode_t *newNode = malloc(sizeof(FunctArgNode_t));
+				newNode->arg = p->entry;
+				newNode->next = NULL;
 
-			while(temp->next != NULL){
-				temp = temp->next;
-			}
+				if(head == NULL){
+					f = newNode;
+					head = newNode;
+				}else{
+					head = f;
+					while(head->next != NULL){
+										
+						head = head->next;
+					}
 
-			temp->next = node;
-			printf("brbrbr%s\n",temp->next->arg->value.varVal->name);
+					head->next = newNode;
+				}
+
 			
 		}
 		p = p->next;
 	}
+
+	return f;
 }
 
 /*Function that returns 0 if token is not found and 1 if found*/
@@ -556,7 +555,7 @@ void printScopeLists(){
 			if(p->entry->unionType == unionVar)
 				printf("(line %d) (scope %d)\n", p->entry->value.varVal->line, p->entry->value.varVal->scope);
 			else 
-				printf("(line %d) (scope %d)\n", p->entry->value.varVal->line, p->entry->value.varVal->scope);
+				printf("(line %d) (scope %d)\n", p->entry->value.funcVal->line, p->entry->value.funcVal->scope);
 			
 				
 			p = p->next;

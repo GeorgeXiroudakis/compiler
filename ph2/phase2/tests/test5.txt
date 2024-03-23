@@ -1,2 +1,5 @@
 function f(x,y,z) {}
-k = 1;
+function a(a1) {}
+function b(b1,b2) {}
+function c(c1, c2, c3) {}
+function d(d1,d2,d3,d4,c3) {}
