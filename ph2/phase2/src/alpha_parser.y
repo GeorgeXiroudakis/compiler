@@ -18,6 +18,8 @@ int scopeLength = 0;
 int scopeCapacity = 0;
 int currScope = 0;
 
+int anonymusFuncNum = 1;
+
 SymTable_T symbolTable;
 ScopeArray_t **ScopeLists;    //pinakas me listes me index ta scopes
 
@@ -27,9 +29,11 @@ void makeVariableEntry(char *name, enum SymbolType type);
 void makeFuncEntry(char *name,enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
+void makeFuncArgList(FunctArgNode_t* f,int scope);
 int  scopeLookUp(int scope,char* key);
 void hideScope(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
+void printFuncArgs(FunctArgNode_t *f);
 void printScopeLists();
 
 %}
@@ -194,8 +198,11 @@ stmt_list: stmt
 	 |
 	 ;
 
-funcdef: FUNCTION IDENTIFIER {makeFuncEntry($2,userfunc);printf("%s\n",$2);currScope++;} PARENTHOPEN idlist {currScope--;} PARENTHCLOSE block
-       | FUNCTION PARENTHOPEN idlist PARENTHCLOSE block
+funcdef: FUNCTION IDENTIFIER {currScope++;} PARENTHOPEN idlist {currScope--;} PARENTHCLOSE {makeFuncEntry($2,userfunc);} block
+       | FUNCTION {int stringLength = snprintf(NULL,0,"%d",anonymusFuncNum);
+       			char* functionName = (char*)malloc(strlen("_anonymusfunc") + stringLength + 1);
+			snprintf(functionName,stringLength + 1 + strlen("_anonymusfunc"),"_anonymusfunc%d",anonymusFuncNum);
+			makeFuncEntry(functionName,userfunc);anonymusFuncNum++;currScope++;}PARENTHOPEN idlist {currScope--;} PARENTHCLOSE block 
        ;
 
 const: number
@@ -257,7 +264,7 @@ int main(int argc, char **argv) {
     	ScopeLists[currScope]->head = NULL;
     	ScopeLists[currScope]->tail = NULL;
 
-    	makeLibEntry("print");
+    	/*makeLibEntry("print");
     	makeLibEntry("input");
     	makeLibEntry("objectmemberkeys");
     	makeLibEntry("objecttotalmembers");
@@ -268,24 +275,9 @@ int main(int argc, char **argv) {
     	makeLibEntry("strtonum");
     	makeLibEntry("sqrt");
     	makeLibEntry("cos");
-    	makeLibEntry("sin");
+    	makeLibEntry("sin");*/
 
-    	currScope++;
-    	makeLibEntry("tan");
-    	makeLibEntry("arctan");
-    
-    	currScope++;
-    	makeLibEntry("Giwrgos");
-    	makeVariableEntry("Xiru", local);
-    	makeLibEntry("Tonis");
-    	makeLibEntry("Gaby");
-
-    	currScope--;
-    	makeVariableEntry("Chadvidhs", global);
-	makeVariableEntry("Chadvidhs", global);
-   	
-	currScope--;
-
+    	
 	if(argc > 2){
 		fprintf(stderr, RED "Wrong call of alpha_parser\ncall with one optional command line argument (the file to analyze)\n" RESET);
 		exit(EXIT_FAILURE);
@@ -304,7 +296,6 @@ int main(int argc, char **argv) {
 
     	yyparse();
     	
-	//hideScope(2);
 
 	printScopeLists();
 	SymTable_map(symbolTable,printEntry,NULL);
@@ -368,6 +359,9 @@ void makeFuncEntry(char *name,enum SymbolType type){
 	f->name = name;
 	f->scope = currScope;
 	f->line = yylineno;
+	f->arglist = NULL;
+
+	makeFuncArgList(f->arglist,currScope);
 
 	entry = malloc(sizeof(SymbolTableEntry_t));
 
@@ -377,8 +371,9 @@ void makeFuncEntry(char *name,enum SymbolType type){
 	entry->unionType = unionFunc;
 	entry->value.funcVal = f;
 	entry->type = type;
-
+	
 	insertToSymTable(currScope,f->name,entry);
+	printFuncArgs(f->arglist);
 }
 
 void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
@@ -437,14 +432,43 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
 		
 }
 
+/*Function that adds the arguments of the function to the function list (scope is + 1 because the arguments have a + 1 scope unlike the function*/
+void makeFuncArgList(FunctArgNode_t* f, int scope){
+	scopeListNode_t *p = ScopeLists[scope + 1]->head;
+	FunctArgNode_t* temp = f;
+
+	while(p != NULL){
+		if((p->entry->isActive == 1) && (p->entry->type == formal)){
+			FunctArgNode_t* node;
+	
+			node = malloc(sizeof(FunctArgNode_t));
+			node->arg = p->entry;
+			node->next = NULL;
+	
+			if(temp == NULL){
+				temp = node;
+				f = temp;
+				p = p->next;
+				printf("grgrgr%s\n",f->arg->value.varVal->name);
+				continue;
+			}
+
+			while(temp->next != NULL){
+				temp = temp->next;
+			}
+
+			temp->next = node;
+			printf("brbrbr%s\n",temp->next->arg->value.varVal->name);
+			
+		}
+		p = p->next;
+	}
+}
+
 /*Function that returns 0 if token is not found and 1 if found*/
 int scopeLookUp(int scope,char* key){
 	scopeListNode_t *p = ScopeLists[scope]->head;
 	
-	if(p == NULL){
-		return 0;
-	}
-
 	while(p != NULL){
 		if(p->entry->unionType == unionVar){
 			if(strcmp(p->entry->value.varVal->name,key) == 0){
@@ -487,6 +511,18 @@ void printEntry(const char *pcKey, void *pvValue, void *pvExtra){
         printf("Hidden token: %s\n", pcKey);
     }
 }
+
+void printFuncArgs(FunctArgNode_t *f){
+	FunctArgNode_t *args = f;
+	if(args == NULL){
+		printf("Why?\n");
+	}
+	while(args != NULL){
+		printf("Function argument %s\n", args->arg->value.varVal->name);
+		args = args->next;
+	}
+}
+
 
 void printScopeLists(){
 	scopeListNode_t *p;
