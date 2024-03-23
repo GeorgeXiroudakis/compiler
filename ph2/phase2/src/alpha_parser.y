@@ -30,6 +30,7 @@ void makeFuncEntry(char *name,enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
 FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f,int scope);
+int upStreamLookUp(int scope, char*key);
 int  scopeLookUp(int scope,char* key);
 void hideScope(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
@@ -147,7 +148,7 @@ primary: lvalue
        | const
        ;
 
-lvalue: IDENTIFIER		{(currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);}
+lvalue: IDENTIFIER		{ if(upStreamLookUp(currScope, $1))yyerror("Redifinition of token"); (currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);}
       | LOCAL IDENTIFIER	{makeVariableEntry($2,local); printf("Entered token %s\n",$2);}     
       | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == 0) ? yyerror("Global Variable not found") : ($$ = $2);}
       | member
@@ -432,6 +433,7 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
 		
 }
 
+
 /*Function that adds the arguments of the function to the function list (scope is + 1 because the arguments have a + 1 scope unlike the function*/
 FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 	scopeListNode_t *p = ScopeLists[scope + 1]->head;
@@ -463,6 +465,18 @@ FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 
 	return f;
 }
+
+
+int upStreamLookUp(int scope, char* key){
+	if(scopeLookUp(scope, key))return 1;
+
+	while (scope--){
+		if(scopeLookUp(scope, key))return 1;
+	}
+
+	return 0;
+}
+
 
 /*Function that returns 0 if token is not found and 1 if found*/
 int scopeLookUp(int scope,char* key){
