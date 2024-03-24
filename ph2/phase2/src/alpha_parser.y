@@ -30,8 +30,8 @@ void makeFuncEntry(char *name,enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
 FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f,int scope);
-int upStreamLookUp(int scope, char*key);
-int  scopeLookUp(int scope,char* key);
+SymbolTableEntry_t *upStreamLookUp(int scope, char*key);
+SymbolTableEntry_t *scopeLookUp(int scope,char* key);
 void hideScope(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 void printFuncArgs(FunctArgNode_t *f);
@@ -151,15 +151,18 @@ primary: lvalue
 
 lvalue: IDENTIFIER		{
 							if(libFuncCheck($1)){ 
-								int res = upStreamLookUp(currScope, $1); 
-								if(res == 1)yyerror("Redifinition of token");
-								else if(res == 2)yyerror("function used as an lvalue");
+								SymbolTableEntry_t *res = upStreamLookUp(currScope, $1);
+								if(res!=NULL){
+									if(res->type == libfunc )yyerror("Redifinition of token");
+									else if(res->type == userfunc)yyerror("function used as an lvalue");
+								} 
+/*!!!!!!!!*/
 								else{ (currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);} 
 							}else yyerror("existing library function with same name");
 						}
      
 	  | LOCAL IDENTIFIER	{ if(libFuncCheck($2)) makeVariableEntry($2,local); else yyerror("existing library function with same name"); }     
-      | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == 0) ? yyerror("Global Variable not found") : ($$ = $2);}
+      | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == NULL) ? yyerror("Global Variable not found") : ($$ = $2);}
       | member
       ;
 
@@ -409,8 +412,23 @@ void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry){
     int oldCapacity = scopeCapacity;
     scopeListNode_t *p;
-
+	SymbolTableEntry_t *duplicate = upStreamLookUp(scope, name);
 	
+	if(duplicate!=NULL){
+		if(duplicate->type == newEntry->type){
+			printf("Same type\n");
+			/*in case of same type and scope, the id is referring to the existing entry*/
+			if(duplicate->unionType == unionVar) if(duplicate->value.varVal->scope == scope) return;
+			if(duplicate->unionType == unionFunc) if(duplicate->value.funcVal->scope == scope) return;
+			/*if the duplicate is a user function and the newEntry is a user function and the duplicate is at a bigger scope than the newEntry
+			*the newEntry function refers to the function of the higher scope*/
+			if(duplicate->type == userfunc && duplicate->value.funcVal->scope > scope) return;
+		}
+		/*in case the duplicate is a formal argument of the function, the newEntry refers to the existing argument*/
+		if(duplicate->type == formal && newEntry->type == local) return; //TODO: elegxos an to duplicate einai argument ths sunarthshs pou vrisketai to newEntry mesa sto argument list ths
+		/*in case a var is used as a function*/
+		if(duplicate->unionType != newEntry->unionType){yyerror("var defined as a function"); return;}
+	}
 
     /*inserting to symbol table*/
 	if(SymTable_put(symbolTable, name, newEntry) == 0){
@@ -483,19 +501,17 @@ FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 
 
 /*Function that returns 0 if token is not found and 1 if found and var, 2 if found and func*/
-int upStreamLookUp(int scope, char* key){
-	int res;
+SymbolTableEntry_t *upStreamLookUp(int scope, char* key){
+	SymbolTableEntry_t * res;
 	res = scopeLookUp(scope, key);
-	if(res == 1)return 1;
-	if(res == 2)return 2;
-
+	if(res != NULL) return res;
+	
 	while (scope--){
 		res = scopeLookUp(scope, key);
-		if(res == 1)return 1;
-		if(res == 2)return 2;
+		if(res != NULL) return res;		
 	}
 
-	return 0;
+	return NULL;
 }
 
 
@@ -516,10 +532,10 @@ int libFuncCheck(char* key){
 
 
 /*Function that returns 0 if token is not found and 1 if found and var, 2 if found and func*/
-int scopeLookUp(int scope,char* key){
+SymbolTableEntry_t * scopeLookUp(int scope,char* key){
 	scopeListNode_t *p;
 	
-	if(ScopeLists[scope] == NULL) return 0;
+	if(ScopeLists[scope] == NULL) return NULL;
 
 	p = ScopeLists[scope]->head;
 	
@@ -527,17 +543,17 @@ int scopeLookUp(int scope,char* key){
 	while(p != NULL){
 		if(p->entry->unionType == unionVar){
 			if( (p->entry->isActive == 1) && (strcmp(p->entry->value.varVal->name,key) == 0)){
-				return 1;
+				return p->entry;
 			}
 		}else{
 			if( (p->entry->isActive == 1) && (strcmp(p->entry->value.funcVal->name,key) == 0)){
-				return 2;
+				return p->entry;
 			}
 		}
 		p = p->next;
 	}
 	/*Not found*/
-	return 0;
+	return NULL;
 }
 
 
