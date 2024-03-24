@@ -212,7 +212,7 @@ int SymTable_put(SymTable_T oSymTable, const char *pcKey, const void *pvValue){
 	assert(oSymTable != NULL);
 	assert(pcKey != NULL);
 
-	if(SymTable_contains(oSymTable, pcKey)) return 0;
+	//if(SymTable_containsDuplicate(oSymTable, pcKey)) return 0;
 	
 	table = oSymTable->hash_table;
 	slot = SymTable_hash(pcKey, oSymTable->capacity);
