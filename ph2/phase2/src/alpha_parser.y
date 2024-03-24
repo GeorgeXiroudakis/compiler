@@ -36,6 +36,7 @@ void hideScope(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 void printFuncArgs(FunctArgNode_t *f);
 void printScopeLists();
+int libFuncCheck(char* key);
 
 %}
 
@@ -138,7 +139,7 @@ term: PARENTHOPEN expr PARENTHCLOSE
     | primary
     ;
 
-assignexpr: lvalue EQUAL expr {printf("lvalue =  %s\n",$1);}
+assignexpr: lvalue EQUAL expr 
 	  ;
 
 primary: lvalue
@@ -148,8 +149,16 @@ primary: lvalue
        | const
        ;
 
-lvalue: IDENTIFIER		{ if(upStreamLookUp(currScope, $1))yyerror("Redifinition of token"); (currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);}
-      | LOCAL IDENTIFIER	{makeVariableEntry($2,local); printf("Entered token %s\n",$2);}     
+lvalue: IDENTIFIER		{
+							if(libFuncCheck($1)){ 
+								int res = upStreamLookUp(currScope, $1); 
+								if(res == 1)yyerror("Redifinition of token");
+								else if(res == 2)yyerror("function used as an lvalue");
+								else{ (currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);} 
+							}else yyerror("existing library function with same name");
+						}
+     
+	  | LOCAL IDENTIFIER	{ if(libFuncCheck($2)) makeVariableEntry($2,local); else yyerror("existing library function with same name"); }     
       | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == 0) ? yyerror("Global Variable not found") : ($$ = $2);}
       | member
       ;
@@ -199,7 +208,7 @@ stmt_list: stmt
 	 |
 	 ;
 
-funcdef: FUNCTION IDENTIFIER {currScope++;} PARENTHOPEN idlist {currScope--;} PARENTHCLOSE {makeFuncEntry($2,userfunc);} block
+funcdef: FUNCTION IDENTIFIER {currScope++;} PARENTHOPEN idlist {currScope--;} PARENTHCLOSE {if(libFuncCheck($2)) makeFuncEntry($2,userfunc); else yyerror("existing library function with same name");} block
        | FUNCTION {int stringLength = snprintf(NULL,0,"%d",anonymusFuncNum);
        			char* functionName = (char*)malloc(strlen("_anonymusfunc") + stringLength + 1);
 			snprintf(functionName,stringLength + 1 + strlen("_anonymusfunc"),"_anonymusfunc%d",anonymusFuncNum);
@@ -265,7 +274,7 @@ int main(int argc, char **argv) {
     	ScopeLists[currScope]->head = NULL;
     	ScopeLists[currScope]->tail = NULL;
 
-    	/*makeLibEntry("print");
+    	makeLibEntry("print");
     	makeLibEntry("input");
     	makeLibEntry("objectmemberkeys");
     	makeLibEntry("objecttotalmembers");
@@ -276,7 +285,7 @@ int main(int argc, char **argv) {
     	makeLibEntry("strtonum");
     	makeLibEntry("sqrt");
     	makeLibEntry("cos");
-    	makeLibEntry("sin");*/
+    	makeLibEntry("sin");
 
     	
 	if(argc > 2){
@@ -401,9 +410,11 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
     int oldCapacity = scopeCapacity;
     scopeListNode_t *p;
 
+	
+
     /*inserting to symbol table*/
 	if(SymTable_put(symbolTable, name, newEntry) == 0){
-		yyerror("redefinition of token");
+		if(newEntry->type != local)yyerror("redefinition of token");
 		return;
 	}
 
@@ -436,8 +447,12 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
 
 /*Function that adds the arguments of the function to the function list (scope is + 1 because the arguments have a + 1 scope unlike the function*/
 FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
-	scopeListNode_t *p = ScopeLists[scope + 1]->head;
+	scopeListNode_t *p; 
 	FunctArgNode_t* head = f;
+
+	if(ScopeLists[scope + 1] == NULL) return f;
+
+	p = ScopeLists[scope + 1]->head; 
 
 	while(p != NULL){
 		if((p->entry->isActive == 1) && (p->entry->type == formal)){
@@ -467,29 +482,56 @@ FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 }
 
 
+/*Function that returns 0 if token is not found and 1 if found and var, 2 if found and func*/
 int upStreamLookUp(int scope, char* key){
-	if(scopeLookUp(scope, key))return 1;
+	int res;
+	res = scopeLookUp(scope, key);
+	if(res == 1)return 1;
+	if(res == 2)return 2;
 
 	while (scope--){
-		if(scopeLookUp(scope, key))return 1;
+		res = scopeLookUp(scope, key);
+		if(res == 1)return 1;
+		if(res == 2)return 2;
 	}
 
 	return 0;
 }
 
 
-/*Function that returns 0 if token is not found and 1 if found*/
-int scopeLookUp(int scope,char* key){
-	scopeListNode_t *p = ScopeLists[scope]->head;
+int libFuncCheck(char* key){
+	scopeListNode_t *p;
+
+	if(ScopeLists[0] == NULL) return 0;
+
+	p = ScopeLists[0]->head;
 	
 	while(p != NULL){
+		if( (p->entry->type == libfunc) && (strcmp(p->entry->value.funcVal->name,key) == 0) )return 0;
+
+		p = p->next;
+	}
+	return 1;
+}
+
+
+/*Function that returns 0 if token is not found and 1 if found and var, 2 if found and func*/
+int scopeLookUp(int scope,char* key){
+	scopeListNode_t *p;
+	
+	if(ScopeLists[scope] == NULL) return 0;
+
+	p = ScopeLists[scope]->head;
+	
+
+	while(p != NULL){
 		if(p->entry->unionType == unionVar){
-			if(strcmp(p->entry->value.varVal->name,key) == 0){
+			if( (p->entry->isActive == 1) && (strcmp(p->entry->value.varVal->name,key) == 0)){
 				return 1;
 			}
 		}else{
-			if(strcmp(p->entry->value.funcVal->name,key) == 0){
-				return 1;
+			if( (p->entry->isActive == 1) && (strcmp(p->entry->value.funcVal->name,key) == 0)){
+				return 2;
 			}
 		}
 		p = p->next;
@@ -501,7 +543,11 @@ int scopeLookUp(int scope,char* key){
 
 /*Hides all tokens of the given scope*/
 void hideScope(int scope){
-    scopeListNode_t *p = ScopeLists[scope]->head;
+    scopeListNode_t *p;
+	
+	if(ScopeLists[scope] == NULL) return;
+	
+	p = ScopeLists[scope]->head;
 
 	if(scope == 0){
 		return;
