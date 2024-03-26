@@ -173,7 +173,7 @@ member: lvalue DOT IDENTIFIER
       ;
 
 call: call PARENTHOPEN elist PARENTHCLOSE
-    | lvalue callsuffix
+    | lvalue callsuffix  
     | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE
     ;
 
@@ -181,14 +181,15 @@ callsuffix: normcall
 	  | methodcall
 	  ;
 
-normcall: PARENTHOPEN elist PARENTHCLOSE
+normcall: PARENTHOPEN elist PARENTHCLOSE  {printf("antoni mhn moy les tetoia"); }
 	;
 
-methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE
+methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE 
 	  ;
 
 elist: expr 
      | elist COMMA expr
+	 |
      ;
 
 indexed: indexedelem
@@ -414,7 +415,7 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
     scopeListNode_t *p;
 	SymbolTableEntry_t *duplicate = upStreamLookUp(scope, name);
 	
-	if(duplicate!=NULL){
+	if(duplicate!=NULL && newEntry->type != local){
 		if(duplicate->type == newEntry->type){
 			printf("Same type\n");
 			/*in case of same type and scope, the id is referring to the existing entry*/
@@ -442,7 +443,7 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
         ScopeLists = realloc(ScopeLists, scopeCapacity * sizeof(ScopeArray_t *));
 
         for(int i = oldCapacity; i < scopeCapacity; i++){
-        	ScopeLists[i] = malloc(sizeof(scopeListNode_t *));
+        	ScopeLists[i] = malloc(sizeof(scopeListNode_t ));
         	ScopeLists[i]->head = NULL;
         	ScopeLists[i]->tail = NULL;
         }
@@ -589,9 +590,7 @@ void printEntry(const char *pcKey, void *pvValue, void *pvExtra){
 
 void printFuncArgs(FunctArgNode_t *f){
 	FunctArgNode_t *args = f;
-	if(args == NULL){
-		printf("Why?\n");
-	}
+	
 	while(args != NULL){
 		printf("Function argument %s\n", args->arg->value.varVal->name);
 		args = args->next;

@@ -1,5 +1,4 @@
-f=1;
-function f(a,b)
-{
-x=5;
-}  
+function f(y) {
+	function g(x) {  } 
+	return g(x);
+}
