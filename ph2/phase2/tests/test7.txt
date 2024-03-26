@@ -1,4 +1,6 @@
-function f(y) {
-	function g(x) {  } 
-	return g(x);
+x;
+{
+	function f(x){
+		::x;
+	}
 }

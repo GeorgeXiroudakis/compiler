@@ -21,7 +21,7 @@ int currScope = 0;
 int anonymusFuncNum = 1;
 
 SymTable_T symbolTable;
-ScopeArray_t **ScopeLists;    //pinakas me listes me index ta scopes
+ScopeArray_t **ScopeLists = NULL;    //pinakas me listes me index ta scopes
 
 /*our functions*/
 void makeLibEntry(char *name);
@@ -166,6 +166,22 @@ lvalue: IDENTIFIER		{
       | member
       ;
 
+lvalue2: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
+								 if(res != NULL) {
+								 	if(res->type != userfunc && res->type != libfunc) yyerror("Function not found");
+								 	else printf("caling function %s\n", res->value.varVal->name);
+								 }else yyerror("Function not found");
+						}		
+	   | DOUBLECOLON IDENTIFIER	{SymbolTableEntry_t *res = upStreamLookUp(0,$2);
+								 if(res != NULL){
+									if(res->type != userfunc && res->type != libfunc) yyerror("Function not found");
+									else printf("caling function %s\n", res->value.varVal->name);
+								}else yyerror("Function not found");
+					}
+								
+	   | member
+	   ;
+
 member: lvalue DOT IDENTIFIER
       | lvalue SQBRACKETOPEN expr SQBRACKETCLOSE
       | call DOT IDENTIFIER
@@ -173,7 +189,7 @@ member: lvalue DOT IDENTIFIER
       ;
 
 call: call PARENTHOPEN elist PARENTHCLOSE
-    | lvalue callsuffix  
+    | lvalue2 callsuffix  
     | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE
     ;
 
@@ -181,7 +197,7 @@ callsuffix: normcall
 	  | methodcall
 	  ;
 
-normcall: PARENTHOPEN elist PARENTHCLOSE  {printf("antoni mhn moy les tetoia"); }
+normcall: PARENTHOPEN elist PARENTHCLOSE
 	;
 
 methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE 
@@ -277,6 +293,10 @@ int main(int argc, char **argv) {
 	ScopeLists[currScope] = malloc(sizeof(scopeListNode_t));
     	ScopeLists[currScope]->head = NULL;
     	ScopeLists[currScope]->tail = NULL;
+    	
+    	/*[currScope+1] = malloc(sizeof(scopeListNode_t));
+    	ScopeLists[currScope+1]->head = NULL;
+    	ScopeLists[currScope+1]->tail = NULL;*/
 
     	makeLibEntry("print");
     	makeLibEntry("input");
@@ -428,7 +448,7 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
 		/*in case the duplicate is a formal argument of the function, the newEntry refers to the existing argument*/
 		if(duplicate->type == formal && newEntry->type == local) return; //TODO: elegxos an to duplicate einai argument ths sunarthshs pou vrisketai to newEntry mesa sto argument list ths
 		/*in case a var is used as a function*/
-		if(duplicate->unionType != newEntry->unionType){yyerror("var defined as a function"); return;}
+		if(duplicate->unionType != newEntry->unionType){yyerror("var redefined as a function"); return;}
 	}
 
     /*inserting to symbol table*/
@@ -443,15 +463,19 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
         ScopeLists = realloc(ScopeLists, scopeCapacity * sizeof(ScopeArray_t *));
 
         for(int i = oldCapacity; i < scopeCapacity; i++){
-        	ScopeLists[i] = malloc(sizeof(scopeListNode_t ));
+			
+        	ScopeLists[i] = malloc(sizeof(scopeListNode_t *));
         	ScopeLists[i]->head = NULL;
         	ScopeLists[i]->tail = NULL;
+
+			printf("initalized from %d to %d\n", i, scopeCapacity);
         }
 
         oldCapacity = scopeCapacity;
     }
 
     if(scopeLength < scope){
+		printf("udating from %d to %d and capacity = %d\n", scopeLength, scope, scopeCapacity);
         scopeLength = scope;
     }
 
@@ -469,7 +493,7 @@ FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 	scopeListNode_t *p; 
 	FunctArgNode_t* head = f;
 
-	if(ScopeLists[scope + 1] == NULL) return f;
+	if(ScopeLists[scope + 1] == NULL || ScopeLists[scope + 1] == 0x21) return f;
 
 	p = ScopeLists[scope + 1]->head; 
 
@@ -505,11 +529,12 @@ FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 SymbolTableEntry_t *upStreamLookUp(int scope, char* key){
 	SymbolTableEntry_t * res;
 	res = scopeLookUp(scope, key);
+	int ogScope = scope;
 	if(res != NULL) return res;
 	
 	while (scope--){
 		res = scopeLookUp(scope, key);
-		if(res != NULL) return res;		
+		if(res != NULL && ( (res->type != formal && res->type != local )  && scope != ogScope) ) return res;		
 	}
 
 	return NULL;
@@ -562,7 +587,7 @@ SymbolTableEntry_t * scopeLookUp(int scope,char* key){
 void hideScope(int scope){
     scopeListNode_t *p;
 	
-	if(ScopeLists[scope] == NULL) return;
+	if(ScopeLists[scope] == NULL || ScopeLists[scope] == 0x21) return;
 	
 	p = ScopeLists[scope]->head;
 
