@@ -547,7 +547,7 @@ SymbolTableEntry_t *upStreamLookUp(int scope, char* key){
 	
 	while (scope--){
 		res = scopeLookUp(scope, key);
-		if(res != NULL && ( (res->type != formal && res->type != local )  && scope != ogScope) ) return res;		
+		if(res != NULL) return res;		
 	}
 
 	return NULL;

@@ -7,3 +7,7 @@ for(i; i < x;i++){
 while(i < y){
 	g = y;
 }
+
+function f(z,t){
+	z = 5;
+}
