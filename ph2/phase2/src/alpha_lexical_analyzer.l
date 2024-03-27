@@ -241,9 +241,47 @@ WRONGIDENT		{INTEGER}|_(_|{IDENTIFIER})+
 					}
 
 
-{STRING}			{
-						yylval.stringVal = strdup(yytext);
-						return STRING;
+{STRING}			{	unsigned int i = 0;
+					unsigned int k = 0;
+					char *output = malloc(strlen(yytext)+1);
+					while (yytext[i] != '\0'){
+						if(yytext[i] == '\\'){
+							if(yytext[i+1] == 'n'){
+								output[k] = '\n';
+								i++;
+							} else if (yytext[i+1] == 't'){
+								output[k] = '\t';
+								i++;
+							} else if (yytext[i+1] == '\\'){
+								output[k] = '\\';
+								i++;
+							}else if(yytext[i+1] == '\"'){
+								output[k] = '\"';
+								i++;
+							} else {
+								if(yytext[i + 1] != ' ' && yytext[i + 1] != '\n'){
+									printf(RED "Invalid escape character in string at line: %u\n" RESET, yylineno);
+									output[k] = yytext[i + 1];
+									k++;
+									i++;
+								}
+
+								i++;
+								continue;
+							}
+						} else {
+							output[k] = yytext[i];
+						}
+						
+						i++;
+						k++;
+					}
+					
+					output[k - 1] = '\0';
+					output = &(output[1]);
+
+					yylval.stringVal = strdup(output);
+					return STRING;
 					}
 
 
@@ -314,11 +352,45 @@ WRONGIDENT		{INTEGER}|_(_|{IDENTIFIER})+
 					}
 
 
-{SINGLECOM}			{
+{SINGLECOM}			{ 		int c;
+						do{
+							c = input();
+						}while(c != '\n' && c != EOF);
 						
 					}
 
-{MULTICOM}			{
+{MULTICOM}			{		unsigned int multicomcounter = 1;
+						int c;
+						int start, end;
+						unsigned int nestedComments = 0;
+						start = yylineno;
+					
+
+
+						while ((c = input())){
+							if(c == EOF)break;
+							
+							if(c == '/'){
+								c = input();
+								if(c == '*') {
+									multicomcounter++;   /*nested comment*/
+									nestedComments++;
+								}
+								else unput(c);
+							} else if(c == '*'){
+								c = input();
+								if(c == '/'){
+									
+									multicomcounter--;
+									if(multicomcounter <= 0) break;
+								}
+								else unput(c);
+							}
+						}
+						end = yylineno;	
+						
+						if(multicomcounter > 0) fprintf(stderr, RED "Unclosed comment at line:%d\n" RESET, yylineno); 
+							
 						
 					}
 

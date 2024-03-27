@@ -1,6 +1,7 @@
-x;
-{
-	function f(x){
-		::x;
+function f(x){
+	local y;
+	function h(z){
+		return f;
 	}
 }
+

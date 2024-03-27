@@ -155,8 +155,8 @@ lvalue: IDENTIFIER		{
 								if(res!=NULL){
 									if(res->type == libfunc )yyerror("Redifinition of token");
 									else if(res->type == userfunc)yyerror("function used as an lvalue");
+									
 								} 
-/*!!!!!!!!*/
 								else{ (currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);} 
 							}else yyerror("existing library function with same name");
 						}
@@ -251,14 +251,14 @@ idlist: IDENTIFIER {makeVariableEntry($1,formal);printf("Added Argument: %s\n",$
       |
       ;
 
-ifstmt: IF PARENTHOPEN expr PARENTHCLOSE
-      | IF PARENTHOPEN expr PARENTHCLOSE ELSE stmt
+ifstmt: IF PARENTHOPEN expr PARENTHCLOSE stmt
+      | IF PARENTHOPEN expr PARENTHCLOSE stmt ELSE stmt
       ;
 
-whilestmt: WHILE PARENTHOPEN expr PARENTHCLOSE stmt
+whilestmt: WHILE PARENTHOPEN {currScope++;} expr PARENTHCLOSE {currScope--;} stmt
 	 ;
 
-forstmt: FOR PARENTHOPEN elist SEMICOLON expr SEMICOLON elist PARENTHCLOSE stmt
+forstmt: FOR PARENTHOPEN {currScope++;} elist SEMICOLON expr SEMICOLON elist PARENTHCLOSE {currScope--;} stmt
        ;
 
 returnstmt: RETURN SEMICOLON

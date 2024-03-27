@@ -1,0 +1,9 @@
+x;
+for(i; i < x;i++){
+	y = x;
+
+}
+
+while(i < y){
+	g = y;
+}
