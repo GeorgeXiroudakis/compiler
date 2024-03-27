@@ -155,11 +155,23 @@ lvalue: IDENTIFIER		{
 								if(res!=NULL){
 									if(res->type == libfunc )yyerror("Redifinition of token");
 									else if(res->type == userfunc)yyerror("function used as an lvalue");
+									else if(res->type != global){
+										if(res->unionType == unionVar){
+											if(res->value.varVal->scope != currScope){
+												yyerror("Not accesible variable");
+											}
+										}else{
+											if(res->value.funcVal->scope != currScope){
+												yyerror("Not accesible function");
+											}
+										}
+									}
 									
 								} 
 								else{ (currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);} 
 							}else yyerror("existing library function with same name");
 						}
+						
      
 	  | LOCAL IDENTIFIER	{ if(libFuncCheck($2)) makeVariableEntry($2,local); else yyerror("existing library function with same name"); }     
       | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == NULL) ? yyerror("Global Variable not found") : ($$ = $2);}
@@ -169,6 +181,7 @@ lvalue: IDENTIFIER		{
 lvalue2: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 								 if(res != NULL) {
 								 	if(res->type != userfunc && res->type != libfunc) yyerror("Function not found");
+									else if(res->type == userfunc && res->value.funcVal->scope != currScope) yyerror("Not accesible function");
 								 	else printf("caling function %s\n", res->value.varVal->name);
 								 }else yyerror("Function not found");
 						}		
