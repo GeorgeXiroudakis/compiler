@@ -30,8 +30,8 @@ void makeFuncEntry(char *name,enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
 FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f,int scope);
-SymbolTableEntry_t *upStreamLookUp(int scope, char*key);
-SymbolTableEntry_t *scopeLookUp(int scope,char* key);
+SymbolTableEntry_t *upStreamLookUp(int scope,const char *key);
+SymbolTableEntry_t *scopeLookUp(int scope,const char *key);
 void hideScope(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 void printFuncArgs(FunctArgNode_t *f);
@@ -99,7 +99,7 @@ program: stmt
        | program stmt
        ;
 
-stmt: expr SEMICOLON
+stmt: expr SEMICOLON 
     | ifstmt 
     | whilestmt
     | forstmt
@@ -226,21 +226,31 @@ indexed: indexedelem
         | indexed COMMA indexedelem
         ;
 
-objectdef: SQBRACKETOPEN  SQBRACKETCLOSE
-	 | SQBRACKETOPEN elist SQBRACKETCLOSE
-	 | SQBRACKETOPEN indexed SQBRACKETCLOSE
-	 ;
+
+objectdef: SQBRACKETOPEN objectdef_body SQBRACKETCLOSE;
+objectdef_body: elist
+              | indexed
+			  ;
+
+
+
+
 
 indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE
 	   ;
 
-block: CURBRACKETOPEN {currScope++; allocateScopes(currScope);} stmt_list  CURBRACKETCLOSE {printf("Current Scope is %d\n",currScope);hideScope(currScope);currScope--;}
+block: CURBRACKETOPEN {currScope++; allocateScopes(currScope);} stmt_list CURBRACKETCLOSE {hideScope(currScope);currScope--;}  
      ;
 
-stmt_list: stmt
-	 | stmt stmt_list
-	 |
-	 ;
+stmt_list: program
+		 |
+		 ;
+
+/* stmt_list: stmt 
+		 | stmt_list stmt
+		 |
+		 ;
+*/
 
 funcdef: FUNCTION IDENTIFIER {currScope++; allocateScopes(currScope); allocateScopes(currScope);} PARENTHOPEN idlist {currScope--;} PARENTHCLOSE {if(libFuncCheck($2)) makeFuncEntry($2,userfunc); else yyerror("existing library function with same name");} block
        | FUNCTION {int stringLength = snprintf(NULL,0,"%d",anonymusFuncNum);
@@ -260,8 +270,8 @@ number: INTEGER
       | REAL
       ;
 
-idlist: IDENTIFIER {makeVariableEntry($1,formal);printf("Added Argument: %s\n",$1);}
-      | idlist COMMA IDENTIFIER {makeVariableEntry($3,formal);printf("Added another Argument: %s\n",$3);}
+idlist: IDENTIFIER {makeVariableEntry($1,formal);/*printf("Added Argument: %s\n",$1);*/}
+      | idlist COMMA IDENTIFIER {makeVariableEntry($3,formal);/*printf("Added another Argument: %s\n",$3);*/}
       |
       ;
 
@@ -346,7 +356,7 @@ int main(int argc, char **argv) {
     	
 
 	printScopeLists();
-	SymTable_map(symbolTable,printEntry,NULL);
+	//SymTable_map(symbolTable,printEntry,NULL);
 
     	return 0;
 }
@@ -457,14 +467,12 @@ void allocateScopes(int scope){
         	ScopeLists[i]->head = NULL;
         	ScopeLists[i]->tail = NULL;
 
-			printf("initalized from %d to %d\n", i, scopeCapacity);
         }
 
         oldCapacity = scopeCapacity;
     }
 
     if(scopeLength < scope){
-		printf("udating from %d to %d and capacity = %d\n", scopeLength, scope, scopeCapacity);
         scopeLength = scope;
     }
 
@@ -481,17 +489,15 @@ void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry)
 	
 	if(duplicate!=NULL && newEntry->type != local){
 		if(duplicate->type == newEntry->type){
-			printf("Same type\n");
 			/*in case of same type and scope, the id is referring to the existing entry*/
 			if(duplicate->unionType == unionVar) if(duplicate->value.varVal->scope == scope) return;
-			if(duplicate->unionType == unionFunc) if(duplicate->value.funcVal->scope == scope) return;
+			if(duplicate->unionType == unionFunc) if(duplicate->value.funcVal->scope == scope) {yyerror("redifinion of function"); return;}
 			/*if the duplicate is a user function and the newEntry is a user function and the duplicate is at a bigger scope than the newEntry
 			*the newEntry function refers to the function of the higher scope*/
 			if(duplicate->type == userfunc && duplicate->value.funcVal->scope > scope) return;
 		}
 		/*in case the duplicate is a formal argument of the function, the newEntry refers to the existing argument*/
-		if(duplicate->type == formal && newEntry->type == local) return; //TODO: elegxos an to duplicate einai argument ths sunarthshs pou vrisketai to newEntry mesa sto argument list ths
-		/*in case a var is used as a function*/
+		if(duplicate->type == formal && newEntry->type == local) return; 		/*in case a var is used as a function*/
 		if(duplicate->unionType != newEntry->unionType){yyerror("var redefined as a function"); return;}
 	}
 
@@ -515,7 +521,7 @@ FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 	scopeListNode_t *p; 
 	FunctArgNode_t* head = f;
 
-	if(ScopeLists[scope + 1] == NULL /*|| ScopeLists[scope + 1] == 0x21*/) return f;
+	if(ScopeLists[scope + 1] == NULL) return f;
 
 	p = ScopeLists[scope + 1]->head; 
 
@@ -548,7 +554,7 @@ FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f, int scope){
 
 
 /*Function that returns 0 if token is not found and 1 if found and var, 2 if found and func*/
-SymbolTableEntry_t *upStreamLookUp(int scope, char* key){
+SymbolTableEntry_t *upStreamLookUp(int scope, const char* key){
 	SymbolTableEntry_t * res;
 	res = scopeLookUp(scope, key);
 	int ogScope = scope;
@@ -580,7 +586,7 @@ int libFuncCheck(char* key){
 
 
 /*Function that returns 0 if token is not found and 1 if found and var, 2 if found and func*/
-SymbolTableEntry_t * scopeLookUp(int scope,char* key){
+SymbolTableEntry_t * scopeLookUp(int scope,const char* key){
 	scopeListNode_t *p;
 	
 	if(ScopeLists[scope] == NULL) return NULL;
@@ -609,7 +615,7 @@ SymbolTableEntry_t * scopeLookUp(int scope,char* key){
 void hideScope(int scope){
     scopeListNode_t *p;
 	
-	if(ScopeLists[scope] == NULL /*|| ScopeLists[scope] == 0x21*/) return;
+	if(ScopeLists[scope] == NULL ) return;
 	
 	p = ScopeLists[scope]->head;
 
