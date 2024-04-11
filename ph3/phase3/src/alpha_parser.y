@@ -40,6 +40,10 @@ int libFuncCheck(char* key);
 
 void allocateScopes(int scope);
 
+/*phase 3*/
+expr* emit_iftableitem(expr* e);
+expr* member_item(expr* lvalue, char* name);
+
 %}
 
 %start program
@@ -689,5 +693,25 @@ void printScopeLists(){
 			p = p->next;
 		}
 		printf("\n");
+	}
+
+
+	/*phase 3*/
+	expr* emit_iftableitem(expr* e){
+		if(e->type != tableitem_e)
+			return e;
+		else {
+			expr* result = newexpr(var_e);
+			result->sym = newtemp();
+			emit(tablegetelem, e, e->index, result);
+			return result;
+		}
+	}
+
+	expr* member_item(expr* lvalue, char* name){
+		lvalue = emit_iftableitem(lvalue);
+		expr* item = newexpr(tableitem_e);
+		item->sym = lvalue->sym;
+		item->index = newexpr_conststring(name);
 	}
 }
