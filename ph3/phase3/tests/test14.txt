@@ -1,0 +1,7 @@
+function f () {
+	local f = 10; // f inside f is a new variable now
+	function h () {
+		return f;// error, f::f (local) not accessible in h
+		return ::f(); // ok, we access global ::f
+	}
+}

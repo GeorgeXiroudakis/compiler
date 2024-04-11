@@ -1,0 +1,17 @@
+
+local foo;
+
+{
+	local test;
+}
+
+{
+	local test2;
+	local test2;
+	{
+		local test3;
+		{
+			local test4;
+		}
+	}
+}

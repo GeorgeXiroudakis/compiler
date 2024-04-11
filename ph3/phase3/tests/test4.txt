@@ -1,0 +1,12 @@
+x = 2;
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
+function (m,n,u) {k;}
