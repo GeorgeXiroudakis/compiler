@@ -1,0 +1,7 @@
+function f(y) {
+	function g(x) { return x*y; } // error: var f::y not accessible in g
+	return g(x);
+}
+function g() {
+	function h() { return g(); } // ::g is visible in g::h
+}

@@ -1,0 +1,13 @@
+x;
+for(i; i < x;i++){
+	y = x;
+
+}
+
+while(i < y){
+	g = y;
+}
+
+function f(z,t){
+	z = 5;
+}

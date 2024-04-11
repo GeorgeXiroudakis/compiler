@@ -1,0 +1,7 @@
+function f(x){
+	local y;
+	function h(z){
+		return f;
+	}
+}
+
