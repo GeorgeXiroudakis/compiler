@@ -41,8 +41,24 @@ int libFuncCheck(char* key);
 void allocateScopes(int scope);
 
 /*phase 3*/
-expr* emit_iftableitem(expr* e);
-expr* member_item(expr* lvalue, char* name);
+
+struct quad* quads = (struct quad*)0;
+unsigned total = 0;
+unsigned int currQuad = 0;
+
+struct expr* emit_iftableitem(struct expr* e);
+struct expr* member_item(struct expr* lvalue, char* name);
+struct expr* newexpr(enum expr_en mitso);
+struct expr* newexpr_conststring(char* c);
+struct sym* newtemp();
+void emit(
+	enum iopcode op,
+	struct expr* arg1,
+	struct expr* arg2,
+	struct expr* result,
+	unsigned label,
+	unsigned line
+	);
 
 %}
 
@@ -364,6 +380,28 @@ int main(int argc, char **argv) {
 
     	return 0;
 }
+
+/*PHASE 3*/
+void emit(
+	enum iopcode op,
+	struct expr* arg1,
+	struct expr* arg2,
+	struct expr* result,
+	unsigned label,
+	unsigned line
+	) {
+	
+	//if(currQuad == total)!
+		//expand();!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	struct quad* p = quads + currQuad++;
+	p->arg1 = arg1;
+	p->arg2 = arg2;
+	p->result = result;
+	p->label = label;
+	p->line = line;
+}
+
 
 
 void makeLibEntry(char *name){
@@ -697,20 +735,20 @@ void printScopeLists(){
 
 
 	/*phase 3*/
-	expr* emit_iftableitem(expr* e){
+	struct expr* emit_iftableitem(struct expr* e){
 		if(e->type != tableitem_e)
 			return e;
 		else {
-			expr* result = newexpr(var_e);
-			result->sym = newtemp();
-			emit(tablegetelem, e, e->index, result);
+			struct expr* result = newexpr(var_e);
+			result->sym->symbol = newtemp();
+			//emit(TABLEGETELEM, e, e->index, result); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BAM
 			return result;
 		}
 	}
 
-	expr* member_item(expr* lvalue, char* name){
+	struct expr* member_item(struct expr* lvalue, char* name){
 		lvalue = emit_iftableitem(lvalue);
-		expr* item = newexpr(tableitem_e);
+		struct expr* item = newexpr(tableitem_e);
 		item->sym = lvalue->sym;
 		item->index = newexpr_conststring(name);
 	}

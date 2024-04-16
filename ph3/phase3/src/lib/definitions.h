@@ -4,6 +4,7 @@
 #define unionFunc  1
 
 struct SymbolTableEntry;
+struct sym;
 
 typedef struct variable{
 	const char *name;
@@ -44,6 +45,7 @@ typedef struct SymbolTableEntry{
 		Function_t *funcVal;
 	}value;
 	enum SymbolType type;
+	struct sym* symbol;
 } SymbolTableEntry_t;
 
 typedef struct scopeListNode{
@@ -57,13 +59,22 @@ typedef struct ScopeArray{
 } ScopeArray_t;
 
 /*PHASE 3*/
-
-enum iopcode {
-	assign, add, sub, mul, div, mod, uminus, and, or, not, if_eq, if_noteq, if_lesseq, if_greatereq, if_less, if_greater,
-	call, param, ret, getretval, funcstart, funcand, tablecreate, tablegetelem, tablesetelem
+enum scope_space{
+	program_var, function_loc, formal_arg
 };
 
-enum expr_t {
+struct sym{
+	char* name;
+	enum scope_space scope;
+	int offset;
+};
+
+enum iopcode {
+	ASSIGN, ADD, SUB, MUL, DIV, MOD, UMINUS, OP_AND, OP_OR, OP_NOT, IF_EQ, IF_NOTEQ, IF_LESSEQ, IF_GREATEREQ, IF_LESS, IF_GREATER,
+	CALL, PARAM, RET, GETRETVAL, FUNCSTART, FUNCAND, TABLECREATE, TABLEGETELEM, TABLESETELEM
+};
+
+enum expr_en {
 	var_e, tableitem_e, 
 	programfunc_e, libraryfunc_e, 
 	arithexpr_e, boolexpr_e, assignexpr_e, newtable_e, 
@@ -72,28 +83,26 @@ enum expr_t {
 };
 
 struct expr {
-	expr_t type;
-	//symbol* sym;  8a psaxnoume sto sym table kai me tis plhrofories tou symtableentry pou 8a exoume 8a arxikopoioume thn metavlhth tupou symbol TODO:na ftia3oume to struct symbol
-	expr* index;
+	enum expr_en type;
+	SymbolTableEntry_t* sym;
+	struct expr* index;
 	double numConst;
 	char* strConst;
 	unsigned char boolConst;
-	expr* next;
+	struct expr* next;
 };
 
 struct quad {
-	iopcode op;
-	expr* result;
-	expr* arg1;
-	expr* arg2;
+	enum iopcode op;
+	struct expr* result;
+	struct expr* arg1;
+	struct expr* arg2;
 	unsigned label;
 	unsigned line;
 };
 
-quad* quads = (quad*)0;
-unsigned total = 0;
-unsigned int currQuad = 0;
+
 
 #define EXPAND_SIZE 1024
-#define CURR_SIZE (total*sizeof(quad))
-#define NEW_SIZE (EXPAND_SIZE * sizeof(quad) + CURR_SIZE)
+#define CURR_SIZE (total*sizeof(struct quad))
+#define NEW_SIZE (EXPAND_SIZE * sizeof(struct quad) + CURR_SIZE)
