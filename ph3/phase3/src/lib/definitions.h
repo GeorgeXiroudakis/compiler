@@ -6,6 +6,10 @@
 struct SymbolTableEntry;
 struct sym;
 
+enum grammar_type{
+	gr_integer, gr_constinteger, gr_constreal, gr_real, gr_conststring, gr_string, gr_boolean, gr_nil
+};
+
 typedef struct variable{
 	const char *name;
 	unsigned int scope;
@@ -17,7 +21,7 @@ typedef struct variable{
 		char* string;
 		short int boolean;
 		char* nill;
-	}value;*/
+	}value*/
 }Variable_t;
 
 typedef struct FunctArgNode{
@@ -40,12 +44,24 @@ enum SymbolType{
 typedef struct SymbolTableEntry{
 	short int isActive;
 	short int unionType;
+	
 	union {
 		Variable_t *varVal;
 		Function_t *funcVal;
 	}value;
+	
 	enum SymbolType type;
 	struct sym* symbol;
+	enum grammar_type gramType;
+	
+	union {
+		int intNum;
+		float realNum;
+		char* string;
+		short int boolean;
+		short int nil;
+	}grammarVal;
+
 } SymbolTableEntry_t;
 
 typedef struct scopeListNode{

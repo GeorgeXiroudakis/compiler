@@ -87,13 +87,14 @@ void emit(
 
 %token<intVal> INTEGER
 
-%token<doubleVal> REAL
+%token<realVal> REAL
 
 %token<idVal> IDENTIFIER WRONGIDENT
 
 
-/*To be checked*/
-%type<idVal> lvalue member expr call /*Added dis just to compile :3*/
+%type<operatorVal> op
+
+%type<exprNode> lvalue member expr call term primary const number /*Added dis just to compile :3*/
 
 
 
@@ -132,23 +133,28 @@ stmt: expr SEMICOLON
     ;
 
 expr: assignexpr
-    | expr op expr %prec PLUS
-    | term
+    | expr op expr %prec PLUS {printf("%d %s %d\n",$1->grammarVal.boolean,$2,$3->grammarVal.boolean);}
+    | term {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = $1->gramType; 
+    	if($1->gramType == gr_integer) $$->grammarVal.intNum = $1->grammarVal.intNum;
+	else if($1->gramType == gr_real) $$->grammarVal.realNum = $1->grammarVal.realNum;
+	else if($1->gramType == gr_string) $$->grammarVal.string = $1->grammarVal.string;
+	else if($1->gramType == gr_nil) $$->grammarVal.nil = $1->grammarVal.nil;
+	else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;}
     ;
 
-op: PLUS 
-  | MINUS
-  | ASTERISK
-  | DIVISION
-  | MODULO
-  | GREATERTHAN
-  | GREATEREQUAL
-  | LESSTHAN
-  | LESSEQUAL
-  | COMPARISON
-  | UNEQUAL
-  | AND
-  | OR
+op: PLUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | MINUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | ASTERISK{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | DIVISION{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | MODULO{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | GREATERTHAN{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | GREATEREQUAL{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | LESSTHAN{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | LESSEQUAL{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | COMPARISON{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | UNEQUAL{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | AND{$$ = malloc(3 * sizeof(char)); $$ = $1;}
+  | OR{$$ = malloc(3 * sizeof(char)); $$ = $1;}
   ;
 
 term: PARENTHOPEN expr PARENTHCLOSE
@@ -158,7 +164,12 @@ term: PARENTHOPEN expr PARENTHCLOSE
     | lvalue PLUSPLUS
     | MINUSMINUS lvalue
     | lvalue MINUSMINUS
-    | primary
+    | primary {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = $1->gramType; 
+    		if($1->gramType == gr_integer) $$->grammarVal.intNum = $1->grammarVal.intNum;
+		else if($1->gramType == gr_real) $$->grammarVal.realNum = $1->grammarVal.realNum;
+		else if($1->gramType == gr_string) $$->grammarVal.string = $1->grammarVal.string;
+		else if($1->gramType == gr_nil) $$->grammarVal.nil = $1->grammarVal.nil;
+		else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;}
     ;
 
 assignexpr: lvalue EQUAL expr 
@@ -168,7 +179,12 @@ primary: lvalue
        | call
        | objectdef
        | PARENTHOPEN funcdef PARENTHCLOSE
-       | const
+       | const {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = $1->gramType; 
+       		if($1->gramType == gr_integer) $$->grammarVal.intNum = $1->grammarVal.intNum;
+		else if($1->gramType == gr_real) $$->grammarVal.realNum = $1->grammarVal.realNum;
+		else if($1->gramType == gr_string) $$->grammarVal.string = $1->grammarVal.string;
+		else if($1->gramType == gr_nil) $$->grammarVal.nil = $1->grammarVal.nil;
+		else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;} 
        ;
 
 lvalue: IDENTIFIER		{
@@ -279,15 +295,16 @@ funcdef: FUNCTION IDENTIFIER {currScope++; allocateScopes(currScope); allocateSc
 			makeFuncEntry(functionName,userfunc);anonymusFuncNum++;currScope++; allocateScopes(currScope);}PARENTHOPEN idlist {currScope--;} PARENTHCLOSE block 
        ;
 
-const: number
-     | STRING
-     | NIL
-     | TRUE
-     | FALSE
+const: number {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = $1->gramType;
+     		($1->gramType == gr_integer) ? ($$->grammarVal.intNum = $1->grammarVal.intNum) : ($$->grammarVal.realNum = $1->grammarVal.realNum); } 
+     | STRING {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = gr_string; $$->grammarVal.string = malloc(strlen($1)+1); strcpy($$->grammarVal.string, $1);}
+     | NIL {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = gr_nil; $$->grammarVal.nil = 1;}
+     | TRUE {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = gr_boolean; $$->grammarVal.boolean = 1;}
+     | FALSE {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = gr_boolean; $$->grammarVal.boolean = 0;}
      ;
 
-number: INTEGER
-      | REAL
+number: INTEGER {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = gr_integer; $$->grammarVal.intNum = $1;}
+      | REAL{$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = gr_real; $$->grammarVal.realNum = $1;}
       ;
 
 idlist: IDENTIFIER {makeVariableEntry($1,formal);/*printf("Added Argument: %s\n",$1);*/}
