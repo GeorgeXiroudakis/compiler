@@ -38,7 +38,7 @@ typedef struct Function{
 }Function_t;
 
 enum SymbolType{
-	global, local, formal, userfunc, libfunc
+	global, local, temp, formal, userfunc, libfunc
 };
 
 typedef struct SymbolTableEntry{
@@ -75,6 +75,10 @@ typedef struct ScopeArray{
 } ScopeArray_t;
 
 /*PHASE 3*/
+#define EXPAND_SIZE 1024
+#define CURR_SIZE (total*sizeof(struct quad))
+#define NEW_SIZE (EXPAND_SIZE * sizeof(struct quad) + CURR_SIZE)
+
 enum scope_space{
 	program_var, function_loc, formal_arg
 };
@@ -119,6 +123,4 @@ struct quad {
 
 
 
-#define EXPAND_SIZE 1024
-#define CURR_SIZE (total*sizeof(struct quad))
-#define NEW_SIZE (EXPAND_SIZE * sizeof(struct quad) + CURR_SIZE)
+

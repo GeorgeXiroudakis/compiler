@@ -17,6 +17,7 @@ extern FILE* yyin;
 int scopeLength = 0;
 int scopeCapacity = 0;
 int currScope = 0;
+int tempcounter = 0;
 
 int anonymusFuncNum = 1;
 
@@ -25,7 +26,7 @@ ScopeArray_t **ScopeLists = NULL;    //pinakas me listes me index ta scopes
 
 /*our functions*/
 void makeLibEntry(char *name);
-void makeVariableEntry(char *name, enum SymbolType type);
+SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type);
 void makeFuncEntry(char *name,enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
@@ -50,7 +51,7 @@ struct expr* emit_iftableitem(struct expr* e);
 struct expr* member_item(struct expr* lvalue, char* name);
 struct expr* newexpr(enum expr_en mitso);
 struct expr* newexpr_conststring(char* c);
-struct sym* newtemp();
+SymbolTableEntry_t* newtemp();
 void emit(
 	enum iopcode op,
 	struct expr* arg1,
@@ -59,6 +60,8 @@ void emit(
 	unsigned label,
 	unsigned line
 	);
+
+void checkArithmetic(struct expr* e);
 
 %}
 
@@ -72,7 +75,8 @@ void emit(
     	char* 	operatorVal;
 	int 	intVal;
 	double	realVal;
-	struct	SymbolTableEntry* exprNode; 
+	struct	SymbolTableEntry* entryNode;
+	struct expr* exprNode;
 }
 
 
@@ -94,7 +98,9 @@ void emit(
 
 %type<operatorVal> op
 
-%type<exprNode> lvalue member expr call term primary const number /*Added dis just to compile :3*/
+%type<entryNode> lvalue member term primary const number /*Added dis just to compile :3*/
+
+%type<exprNode> expr
 
 
 
@@ -133,13 +139,13 @@ stmt: expr SEMICOLON
     ;
 
 expr: assignexpr
-    | expr op expr %prec PLUS {printf("%d %s %d\n",$1->grammarVal.boolean,$2,$3->grammarVal.boolean);}
-    | term {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = $1->gramType; 
-    	if($1->gramType == gr_integer) $$->grammarVal.intNum = $1->grammarVal.intNum;
-	else if($1->gramType == gr_real) $$->grammarVal.realNum = $1->grammarVal.realNum;
-	else if($1->gramType == gr_string) $$->grammarVal.string = $1->grammarVal.string;
-	else if($1->gramType == gr_nil) $$->grammarVal.nil = $1->grammarVal.nil;
-	else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;}
+    | expr op expr %prec PLUS {printf("%d %s %d\n",$1->sym->grammarVal.boolean,$2,$3->sym->grammarVal.boolean);}
+    | term {$$ = malloc(sizeof(struct expr)); /*gemise to expr*/ $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->gramType = $1->gramType; 
+    	if($1->gramType == gr_integer) $$->sym->grammarVal.intNum = $1->grammarVal.intNum;
+	else if($1->gramType == gr_real) $$->sym->grammarVal.realNum = $1->grammarVal.realNum;
+	else if($1->gramType == gr_string) $$->sym->grammarVal.string = $1->grammarVal.string;
+	else if($1->gramType == gr_nil) $$->sym->grammarVal.nil = $1->grammarVal.nil;
+	else if($1->gramType == gr_boolean) $$->sym->grammarVal.boolean = $1->grammarVal.boolean;}
     ;
 
 op: PLUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
@@ -162,7 +168,7 @@ term: PARENTHOPEN expr PARENTHCLOSE
     | NOT expr
     | PLUSPLUS lvalue
     | lvalue PLUSPLUS
-    | MINUSMINUS lvalue
+    | MINUSMINUS lvalue {checkArithmetic($2);}
     | lvalue MINUSMINUS
     | primary {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = $1->gramType; 
     		if($1->gramType == gr_integer) $$->grammarVal.intNum = $1->grammarVal.intNum;
@@ -172,10 +178,22 @@ term: PARENTHOPEN expr PARENTHCLOSE
 		else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;}
     ;
 
-assignexpr: lvalue EQUAL expr 
+assignexpr: lvalue EQUAL expr {$1->gramType = $3->sym->gramType;
+	  	if($1->gramType == gr_integer){
+			$1->grammarVal.intNum = $3->sym->grammarVal.intNum;
+		}else if($1->gramType == gr_real){
+			$1->grammarVal.realNum = $3->sym->grammarVal.realNum;
+		}else if($1->gramType == gr_string){
+			$1->grammarVal.string = malloc(sizeof(char) * strlen($3->sym->grammarVal.string) + 1);
+			strcpy($1->grammarVal.string,$3->sym->grammarVal.string);
+		}else{
+			$1->grammarVal.nil = $3->sym->grammarVal.nil;
+		}
+		printf("%d\n",$1->grammarVal.intNum);
+	  }
 	  ;
 
-primary: lvalue
+primary: lvalue {printf("%s\n", $1->value.varVal->name);}
        | call
        | objectdef
        | PARENTHOPEN funcdef PARENTHCLOSE
@@ -184,7 +202,7 @@ primary: lvalue
 		else if($1->gramType == gr_real) $$->grammarVal.realNum = $1->grammarVal.realNum;
 		else if($1->gramType == gr_string) $$->grammarVal.string = $1->grammarVal.string;
 		else if($1->gramType == gr_nil) $$->grammarVal.nil = $1->grammarVal.nil;
-		else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;} 
+	else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;} 
        ;
 
 lvalue: IDENTIFIER		{
@@ -205,8 +223,10 @@ lvalue: IDENTIFIER		{
 										}*/
 									}
 								} 
-								else{ (currScope == 0) ? makeVariableEntry($1,global) : makeVariableEntry($1,local);} 
+								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));} 
+								$$ = res;
 							}else yyerror("existing library function with same name");
+
 						}
 						
      
@@ -371,6 +391,9 @@ int main(int argc, char **argv) {
     	makeLibEntry("sqrt");
     	makeLibEntry("cos");
     	makeLibEntry("sin");
+	newtemp();
+	newtemp();
+	newtemp();
 
     	
 	if(argc > 2){
@@ -389,6 +412,8 @@ int main(int argc, char **argv) {
 		yyin = stdin;
    
 
+	newtemp(); //KSHRU
+
     	yyparse();
     	
 
@@ -399,6 +424,41 @@ int main(int argc, char **argv) {
 }
 
 /*PHASE 3*/
+
+char* newtempname(){
+	int stringLength = snprintf(NULL,0,"%d",tempcounter);
+	char* tempname = (char*)malloc(strlen("_temp") + stringLength + 1);
+	snprintf(tempname,stringLength + 1 + strlen("_temp"),"_temp%d",tempcounter);
+	return tempname;
+}
+
+void resettemp(){
+	tempcounter = 0;
+}
+
+SymbolTableEntry_t* newtemp(){
+	char* name = newtempname();
+	SymbolTableEntry_t* sym = upStreamLookUp(currScope,name);
+	if(sym == NULL){
+		tempcounter++;
+		return makeVariableEntry(name,temp); 
+	}else{
+		return sym;
+	}
+}
+	
+
+void expand(){
+	assert(total == currQuad);
+	struct quad* p = malloc(NEW_SIZE);
+	if(quads){
+		memcpy(p,quads,CURR_SIZE);
+		free(quads);
+	}
+	quads = p;
+	total += EXPAND_SIZE;
+}
+
 void emit(
 	enum iopcode op,
 	struct expr* arg1,
@@ -408,8 +468,9 @@ void emit(
 	unsigned line
 	) {
 	
-	//if(currQuad == total)!
-		//expand();!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	if(currQuad == total){
+		expand();
+	}
 
 	struct quad* p = quads + currQuad++;
 	p->arg1 = arg1;
@@ -419,7 +480,7 @@ void emit(
 	p->line = line;
 }
 
-
+/*end of phase3*/
 
 void makeLibEntry(char *name){
 
@@ -445,7 +506,7 @@ void makeLibEntry(char *name){
 
 }
 
-void makeVariableEntry(char *name, enum SymbolType type){
+SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type){
     	SymbolTableEntry_t *entry;
     	Variable_t *v;
 
@@ -465,6 +526,7 @@ void makeVariableEntry(char *name, enum SymbolType type){
 	entry->type = type;
 
     	insertToSymTable(currScope, v->name, entry);
+	return entry;
 }
 
 void makeFuncEntry(char *name,enum SymbolType type){
@@ -750,23 +812,34 @@ void printScopeLists(){
 		printf("\n");
 	}
 
+}
 
-	/*phase 3*/
-	struct expr* emit_iftableitem(struct expr* e){
-		if(e->type != tableitem_e)
-			return e;
-		else {
-			struct expr* result = newexpr(var_e);
-			result->sym->symbol = newtemp();
-			//emit(TABLEGETELEM, e, e->index, result); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BAM
-			return result;
-		}
+/*phase 3*/
+/*struct expr* emit_iftableitem(struct expr* e){
+	if(e->type != tableitem_e)
+		return e;
+	else {
+		struct expr* result = newexpr(var_e);
+		result->sym->symbol = newtemp();
+		//emit(TABLEGETELEM, e, e->index, result); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BAM
+		return result;
 	}
+}
 
-	struct expr* member_item(struct expr* lvalue, char* name){
-		lvalue = emit_iftableitem(lvalue);
-		struct expr* item = newexpr(tableitem_e);
-		item->sym = lvalue->sym;
-		item->index = newexpr_conststring(name);
-	}
+struct expr* member_item(struct expr* lvalue, char* name){
+	lvalue = emit_iftableitem(lvalue);
+	struct expr* item = newexpr(tableitem_e);
+	item->sym = lvalue->sym;
+	item->index = newexpr_conststring(name);
+}*/
+
+void checkArithmetic(struct expr* e){
+	if(e->type == constbool_e ||
+	   e->type == conststring_e ||
+	   e->type == nil_e ||
+	   e->type == newtable_e ||
+	   e->type == programfunc_e ||
+	   e->type == libraryfunc_e ||
+	   e->type == boolexpr_e)
+	   yyerror("Illegal expression ");
 }
