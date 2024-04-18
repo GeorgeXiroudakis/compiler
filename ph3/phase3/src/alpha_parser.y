@@ -17,8 +17,6 @@ extern FILE* yyin;
 int scopeLength = 0;
 int scopeCapacity = 0;
 int currScope = 0;
-int tempcounter = 0;
-
 int anonymusFuncNum = 1;
 
 SymTable_T symbolTable;
@@ -46,6 +44,9 @@ void allocateScopes(int scope);
 struct quad* quads = (struct quad*)0;
 unsigned total = 0;
 unsigned int currQuad = 0;
+
+int tempcounter = 0;
+int scopeoffset = 0;
 
 struct expr* emit_iftableitem(struct expr* e);
 struct expr* member_item(struct expr* lvalue, char* name);
@@ -222,15 +223,28 @@ lvalue: IDENTIFIER		{
 											}
 										}*/
 									}
-								} 
+								}
 								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));} 
+								res->symbol.space  = currscopespace();
+								res->symbol.offset = currscopeoffset();
+								incurrscopeoffset();
 								$$ = res;
 							}else yyerror("existing library function with same name");
 
 						}
 						
      
-	  | LOCAL IDENTIFIER	{ if(libFuncCheck($2)){ if(scopeLookUp(currScope, $2) == NULL)makeVariableEntry($2,local);} else yyerror("existing library function with same name"); }     
+	  | LOCAL IDENTIFIER	{ 	
+	  				if(libFuncCheck($2)){
+						SymbolTableEntry_t* res = scopeLookUp(currScope, $2);
+						if(res == NULL){
+							res = makeVariableEntry($2,local);
+							res->symbol.space  = currscopespace();
+							res->symbol.offset = currscopeoffset();
+							incurrscopeoffset();
+							$$ = res;
+						}
+					} else yyerror("existing library function with same name"); }     
       | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == NULL) ? yyerror("Global Variable not found") : ($$ = $2);}
       | member
       ;
@@ -479,6 +493,7 @@ void emit(
 	p->label = label;
 	p->line = line;
 }
+
 
 /*end of phase3*/
 
