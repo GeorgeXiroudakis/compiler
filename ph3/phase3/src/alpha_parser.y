@@ -796,6 +796,9 @@ void printScopeLists(){
 				case libfunc:
 					printf("[library function] ");
 					break;
+				case temp:
+					printf("[temp variable] ");
+					break;
 				default:
 					printf("[unknown type] ");
 					break;
