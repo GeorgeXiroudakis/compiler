@@ -79,19 +79,20 @@ typedef struct ScopeArray{
 #define CURR_SIZE (total*sizeof(struct quad))
 #define NEW_SIZE (EXPAND_SIZE * sizeof(struct quad) + CURR_SIZE)
 
-enum scope_space{
-	program_var, function_loc, formal_arg
-};
+enum symbol_t { var_s, programfunc_s, libraryfunc_s };
+
+enum scope_space { program_var, function_loc, formal_arg };
 
 struct sym{
-	char* name;
-	enum scope_space scope;
-	int offset;
+	enum symbol_t	type;
+	char* 		name;
+	enum scope_space scopeSpace;
+	unsigned	offset;
 };
 
 enum iopcode {
 	ASSIGN, ADD, SUB, MUL, DIV, MOD, UMINUS, OP_AND, OP_OR, OP_NOT, IF_EQ, IF_NOTEQ, IF_LESSEQ, IF_GREATEREQ, IF_LESS, IF_GREATER,
-	CALL, PARAM, RET, GETRETVAL, FUNCSTART, FUNCAND, TABLECREATE, TABLEGETELEM, TABLESETELEM
+	CALL, PARAM, RET, GETRETVAL, FUNCSTART, FUNCEND, TABLECREATE, TABLEGETELEM, TABLESETELEM
 };
 
 enum expr_en {

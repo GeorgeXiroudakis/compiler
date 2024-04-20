@@ -45,14 +45,23 @@ struct quad* quads = (struct quad*)0;
 unsigned total = 0;
 unsigned int currQuad = 0;
 
+
 int tempcounter = 0;
 int scopeoffset = 0;
+
+
+unsigned programVarOffset = 0;
+unsigned functionLocalOffset = 0;
+unsigned formalArgOffset = 0;
+unsigned scopeSpaceCounter = 1;
+
 
 struct expr* emit_iftableitem(struct expr* e);
 struct expr* member_item(struct expr* lvalue, char* name);
 struct expr* newexpr(enum expr_en mitso);
 struct expr* newexpr_conststring(char* c);
 SymbolTableEntry_t* newtemp();
+
 void emit(
 	enum iopcode op,
 	struct expr* arg1,
@@ -62,7 +71,18 @@ void emit(
 	unsigned line
 	);
 
+
 void checkArithmetic(struct expr* e);
+enum scope_space currscopespace(void);
+unsigned currscopeoffset(void);
+void inccurrscopeoffset(void);
+void enterscopespace(void);
+void exitscopespace(void);
+void resetformalargsoffset(void);
+void resetfunctionlocalsoffset(void);
+void  restorecurrscopeoffset(unsigned n);
+unsigned nextquadlabel(void);
+void patchlabel(unsigned quadNo,unsigned label);
 
 %}
 
@@ -225,9 +245,9 @@ lvalue: IDENTIFIER		{
 									}
 								}
 								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));} 
-								res->symbol.space  = currscopespace();
-								res->symbol.offset = currscopeoffset();
-								incurrscopeoffset();
+								res->symbol->scopeSpace  = currscopespace();
+								res->symbol->offset = currscopeoffset();
+								inccurrscopeoffset();
 								$$ = res;
 							}else yyerror("existing library function with same name");
 
@@ -239,9 +259,9 @@ lvalue: IDENTIFIER		{
 						SymbolTableEntry_t* res = scopeLookUp(currScope, $2);
 						if(res == NULL){
 							res = makeVariableEntry($2,local);
-							res->symbol.space  = currscopespace();
-							res->symbol.offset = currscopeoffset();
-							incurrscopeoffset();
+							res->symbol->scopeSpace  = currscopespace();
+							res->symbol->offset = currscopeoffset();
+							inccurrscopeoffset();
 							$$ = res;
 						}
 					} else yyerror("existing library function with same name"); }     
@@ -439,6 +459,58 @@ int main(int argc, char **argv) {
 
 /*PHASE 3*/
 
+enum scope_space currscopespace(void){
+	if(scopeSpaceCounter == 1){
+		return program_var;
+	}else if(scopeSpaceCounter % 2 == 0){
+		return formal_arg;
+	}else{
+		return function_loc;
+	}
+}
+
+unsigned currscopeoffset(void){
+	switch(currscopespace()){
+		case program_var	: return programVarOffset;
+		case function_loc : return functionLocalOffset;
+		case formal_arg : return formalArgOffset;
+		default: assert(0);
+	}
+}
+
+void inccurrscopeoffset(void){
+	switch(currscopespace()){
+		case program_var : ++programVarOffset; break;
+		case function_loc : ++functionLocalOffset; break;
+		case formal_arg : ++formalArgOffset; break;
+		default : assert(0);
+	}
+}
+
+void enterscopespace(void) { ++scopeSpaceCounter; }
+
+void exitscopespace(void) { assert(scopeSpaceCounter > 1); --scopeSpaceCounter; }
+
+void resetformalargsoffset(void) { formalArgOffset = 0; }
+
+void resetfunctionlocalsoffset(void) { functionLocalOffset = 0; }
+
+void restorecurrscopeoffset(unsigned n) { 
+	switch(currscopespace()){
+		case program_var : programVarOffset = n; break;
+		case function_loc : functionLocalOffset = n; break;
+		case formal_arg : formalArgOffset = n; break;
+		default : assert(0);
+	}
+}
+
+unsigned nextquadLabel(void){ return currQuad; }
+
+void patchlabel(unsigned quadNo, unsigned label){
+	assert(quadNo < currQuad);
+	quads[quadNo].label = label;
+}
+
 char* newtempname(){
 	int stringLength = snprintf(NULL,0,"%d",tempcounter);
 	char* tempname = (char*)malloc(strlen("_temp") + stringLength + 1);
@@ -487,11 +559,97 @@ void emit(
 	}
 
 	struct quad* p = quads + currQuad++;
+	p->op = op;
 	p->arg1 = arg1;
 	p->arg2 = arg2;
 	p->result = result;
 	p->label = label;
 	p->line = line;
+}
+
+void printQuads(void){
+	FILE* file;
+	file = fopen("quads.txt","w");
+	
+	if(file == NULL){
+		yyerror("Couldnt make quads.txt file");
+	}
+	
+	fprintf(file,"Quad#   opcode        result         arg1         arg2         label\n");
+	fprintf(file,"--------------------------------------------------------------------\n");
+	
+	for(int i =0; i < total;i++){
+		
+		fprintf(file,"%d:   ",i);
+		/*:))))))))))*/
+		switch (quads[i].op){
+				case ASSIGN:
+					fprintf(file,"assign        "); break;
+				case ADD:
+					fprintf(file,"add        ");  break;
+				case SUB:
+					fprintf(file,"sub        "); break;
+				case MUL:
+					fprintf(file,"mul        ");   break;
+				case DIV:
+					fprintf(file,"div        ");break;
+				case MOD:
+					fprintf(file,"mod        ");   break;
+				case UMINUS:
+					fprintf(file,"uminus        ");break;
+				case OP_AND:
+					fprintf(file,"and        ");break;
+				case OP_OR:
+					fprintf(file,"or        ");	   break;
+				case OP_NOT:
+					fprintf(file,"not        ");break;
+				case IF_EQ:
+					fprintf(file,"if_eq        ");break;
+				case IF_NOTEQ:
+					fprintf(file,"if_noteq        ");break;
+				case IF_LESSEQ:
+					fprintf(file,"if_lesseq        ");break;
+				case IF_GREATEREQ:
+					fprintf(file,"if_greatereq        ");break;
+				case IF_LESS:
+					fprintf(file,"if_less        ");break;
+				case IF_GREATER:
+					fprintf(file,"if_greater        ");break;
+				case CALL:
+					fprintf(file,"call        ");break;
+				case PARAM:
+					fprintf(file,"param        ");break;
+				case RET:
+					fprintf(file,"ret        ");break;
+				case GETRETVAL:
+					fprintf(file,"getretval        ");break;
+				case FUNCSTART:
+					fprintf(file,"funcstart        ");break;
+				case FUNCEND:
+					fprintf(file,"funcend        ");break;
+				case TABLECREATE:
+					fprintf(file,"tablecreate        ");break;
+				case TABLEGETELEM:
+					fprintf(file,"tablegetelem        ");break;
+				case TABLESETELEM:
+					fprintf(file,"tablesetelem        ");break;
+				default:
+					fprintf(file,"unknownopcode        ");break;
+			}
+
+
+		
+		fprintf(file,"%s         %s         %s         ",quads[i].result->sym->symbol->name,quads[i].arg1->sym->symbol->name,quads[i].arg2->sym->symbol->name); 
+		
+		if(quads[i].label == 0){
+			fprintf(file," \n");
+		}else{
+			fprintf(file,"%d\n",quads[i].label);
+		}
+	}
+	
+	fclose(file);
+
 }
 
 
@@ -539,6 +697,8 @@ SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type){
 	entry->unionType = unionVar;
 	entry->value.varVal = v;
 	entry->type = type;
+
+	entry->symbol = malloc(sizeof(struct sym));
 
     	insertToSymTable(currScope, v->name, entry);
 	return entry;
