@@ -17,15 +17,15 @@ extern FILE* yyin;
 int scopeLength = 0;
 int scopeCapacity = 0;
 int currScope = 0;
-int anonymusFuncNum = 1;
+int anonymusFuncNum = 0;
 
 SymTable_T symbolTable;
 ScopeArray_t **ScopeLists = NULL;    //pinakas me listes me index ta scopes
 
 /*our functions*/
-void makeLibEntry(char *name);
+SymbolTableEntry_t* makeLibEntry(char *name);
 SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type);
-void makeFuncEntry(char *name,enum SymbolType type);
+SymbolTableEntry_t* makeFuncEntry(char *name,enum SymbolType type);
 void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
 FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f,int scope);
@@ -83,7 +83,7 @@ void resetfunctionlocalsoffset(void);
 void  restorecurrscopeoffset(unsigned n);
 unsigned nextquadlabel(void);
 void patchlabel(unsigned quadNo,unsigned label);
-
+struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next);  
 %}
 
 %start program
@@ -119,7 +119,9 @@ void patchlabel(unsigned quadNo,unsigned label);
 
 %type<operatorVal> op
 
-%type<entryNode> lvalue member term primary const number /*Added dis just to compile :3*/
+%type<entryNode> lvalue member term primary const number /*:3*/
+
+%type<entryNode> call stmt funcdef
 
 %type<exprNode> expr
 
@@ -323,9 +325,6 @@ objectdef_body: elist
 			  ;
 
 
-
-
-
 indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE
 	   ;
 
@@ -342,11 +341,26 @@ stmt_list: program
 		 ;
 */
 
-funcdef: FUNCTION IDENTIFIER {currScope++; allocateScopes(currScope); allocateScopes(currScope);} PARENTHOPEN idlist {currScope--;} PARENTHCLOSE {if(libFuncCheck($2)) makeFuncEntry($2,userfunc); else yyerror("existing library function with same name");} block
-       | FUNCTION {int stringLength = snprintf(NULL,0,"%d",anonymusFuncNum);
+funcdef: FUNCTION IDENTIFIER {	
+       				currScope++; 
+				allocateScopes(currScope);
+			     } 
+			PARENTHOPEN idlist {currScope--;} 
+			PARENTHCLOSE {if(!libFuncCheck($2)) yyerror("existing library function with same name"); } 
+			block {SymbolTableEntry_t* newFunc = makeFuncEntry($2, userfunc); $$ = newFunc;
+			
+				struct expr* newExpr = makeExpression(programfunc_e, newFunc, NULL, NULL);//TODO: isws prepei na alla3oume ta NULL
+
+				emit(FUNCSTART, newExpr, NULL, NULL, 0, 0); //TODO: na dsoume ta swsta label kai line
+			} 
+       | FUNCTION PARENTHOPEN idlist {currScope--;} PARENTHCLOSE 
+		  block { int stringLength = snprintf(NULL,0,"%d",anonymusFuncNum);
        			char* functionName = (char*)malloc(strlen("_anonymusfunc") + stringLength + 1);
 			snprintf(functionName,stringLength + 1 + strlen("_anonymusfunc"),"_anonymusfunc%d",anonymusFuncNum);
-			makeFuncEntry(functionName,userfunc);anonymusFuncNum++;currScope++; allocateScopes(currScope);}PARENTHOPEN idlist {currScope--;} PARENTHCLOSE block 
+			SymbolTableEntry_t* newFunc;
+			anonymusFuncNum++;currScope++; allocateScopes(currScope);
+			newFunc = makeFuncEntry(functionName, userfunc);
+			$$ = newFunc;}
        ;
 
 const: number {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = $1->gramType;
@@ -425,10 +439,6 @@ int main(int argc, char **argv) {
     	makeLibEntry("sqrt");
     	makeLibEntry("cos");
     	makeLibEntry("sin");
-	newtemp();
-	newtemp();
-	newtemp();
-
     	
 	if(argc > 2){
 		fprintf(stderr, RED "Wrong call of alpha_parser\ncall with one optional command line argument (the file to analyze)\n" RESET);
@@ -445,8 +455,6 @@ int main(int argc, char **argv) {
 	}else
 		yyin = stdin;
    
-
-	newtemp(); //KSHRU
 
     	yyparse();
     	
@@ -504,7 +512,7 @@ void restorecurrscopeoffset(unsigned n) {
 	}
 }
 
-unsigned nextquadLabel(void){ return currQuad; }
+unsigned nextquadlabel(void){ return currQuad; }
 
 void patchlabel(unsigned quadNo, unsigned label){
 	assert(quadNo < currQuad);
@@ -652,10 +660,21 @@ void printQuads(void){
 
 }
 
+struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next){
+	
+	struct expr* newExpr;
+	newExpr->type = type;
+	newExpr->sym = sym;
+	newExpr->index = index;
+	newExpr->next = next;
+
+	return newExpr;
+
+}
 
 /*end of phase3*/
 
-void makeLibEntry(char *name){
+SymbolTableEntry_t* makeLibEntry(char *name){
 
     	SymbolTableEntry_t *entry;
     	Function_t *f;
@@ -676,6 +695,8 @@ void makeLibEntry(char *name){
 	entry->type = libfunc;
 
     	insertToSymTable(currScope, f->name, entry);
+
+	return entry;
 
 }
 
@@ -704,7 +725,7 @@ SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type){
 	return entry;
 }
 
-void makeFuncEntry(char *name,enum SymbolType type){
+SymbolTableEntry_t* makeFuncEntry(char *name,enum SymbolType type){
 	SymbolTableEntry_t *entry;
 	Function_t *f;
 	
@@ -728,6 +749,7 @@ void makeFuncEntry(char *name,enum SymbolType type){
 	
 	insertToSymTable(currScope,f->name,entry);
 	printFuncArgs(f->arglist);
+	return entry;
 }
 
 void insertToScopeList(ScopeArray_t *scope, scopeListNode_t *newNode){

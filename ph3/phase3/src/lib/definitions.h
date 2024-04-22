@@ -107,9 +107,9 @@ struct expr {
 	enum expr_en type;
 	SymbolTableEntry_t* sym;
 	struct expr* index;
-	double numConst;
+	/*double numConst;
 	char* strConst;
-	unsigned char boolConst;
+	unsigned char boolConst;*/
 	struct expr* next;
 };
 
