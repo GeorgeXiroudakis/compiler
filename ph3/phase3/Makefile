@@ -26,4 +26,4 @@ src/alpha_parser.c: src/alpha_parser.y src/lib/symtable.h
 
 
 clean:
-	rm -f alpha_parser src/*.o src/*.c src/*.cpp src/*.hpp src/*.h src/*.output
+	rm -f alpha_parser src/*.o src/*.c src/*.cpp src/*.hpp src/*.h src/*.output quads.txt
