@@ -83,6 +83,7 @@ void resetfunctionlocalsoffset(void);
 void  restorecurrscopeoffset(unsigned n);
 unsigned nextquadlabel(void);
 void patchlabel(unsigned quadNo,unsigned label);
+void printQuads(void);
 struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next);  
 %}
 
@@ -94,6 +95,7 @@ struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct e
     	char*	stringVal;
     	char*	idVal;
     	char* 	operatorVal;
+	unsigned unsignedVal;
 	int 	intVal;
 	double	realVal;
 	struct	SymbolTableEntry* entryNode;
@@ -121,9 +123,15 @@ struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct e
 
 %type<entryNode> lvalue member term primary const number /*:3*/
 
-%type<entryNode> call stmt funcdef
+%type<entryNode> call stmt
 
 %type<exprNode> expr
+
+%type<idVal> funcname
+
+%type<unsignedVal> funcbody
+
+%type<entryNode> funcdef funcprefix
 
 
 
@@ -247,9 +255,6 @@ lvalue: IDENTIFIER		{
 									}
 								}
 								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));} 
-								res->symbol->scopeSpace  = currscopespace();
-								res->symbol->offset = currscopeoffset();
-								inccurrscopeoffset();
 								$$ = res;
 							}else yyerror("existing library function with same name");
 
@@ -261,9 +266,6 @@ lvalue: IDENTIFIER		{
 						SymbolTableEntry_t* res = scopeLookUp(currScope, $2);
 						if(res == NULL){
 							res = makeVariableEntry($2,local);
-							res->symbol->scopeSpace  = currscopespace();
-							res->symbol->offset = currscopeoffset();
-							inccurrscopeoffset();
 							$$ = res;
 						}
 					} else yyerror("existing library function with same name"); }     
@@ -341,26 +343,52 @@ stmt_list: program
 		 ;
 */
 
-funcdef: FUNCTION IDENTIFIER {	
-       				currScope++; 
-				allocateScopes(currScope);
-			     } 
-			PARENTHOPEN idlist {currScope--;} 
-			PARENTHCLOSE {if(!libFuncCheck($2)) yyerror("existing library function with same name"); } 
-			block {SymbolTableEntry_t* newFunc = makeFuncEntry($2, userfunc); $$ = newFunc;
-			
-				struct expr* newExpr = makeExpression(programfunc_e, newFunc, NULL, NULL);//TODO: isws prepei na alla3oume ta NULL
 
-				emit(FUNCSTART, newExpr, NULL, NULL, 0, 0); //TODO: na dsoume ta swsta label kai line
-			} 
-       | FUNCTION PARENTHOPEN idlist {currScope--;} PARENTHCLOSE 
-		  block { int stringLength = snprintf(NULL,0,"%d",anonymusFuncNum);
-       			char* functionName = (char*)malloc(strlen("_anonymusfunc") + stringLength + 1);
-			snprintf(functionName,stringLength + 1 + strlen("_anonymusfunc"),"_anonymusfunc%d",anonymusFuncNum);
-			SymbolTableEntry_t* newFunc;
-			anonymusFuncNum++;currScope++; allocateScopes(currScope);
-			newFunc = makeFuncEntry(functionName, userfunc);
-			$$ = newFunc;}
+funcname: IDENTIFIER	    {	
+       				//currScope++; 
+				//allocateScopes(currScope);
+				if(!libFuncCheck($1)) yyerror("existing library function with same name"); 
+				$$ = $1;
+			     }
+
+	|		    {	
+       				//currScope++; 
+				//allocateScopes(currScope);
+				int stringLength = snprintf(NULL,0,"%d",anonymusFuncNum);
+       				char* functionName = (char*)malloc(strlen("_anonymusfunc") + stringLength + 1);
+				snprintf(functionName,stringLength + 1 + strlen("_anonymusfunc"),"_anonymusfunc%d",anonymusFuncNum);
+				anonymusFuncNum++;	
+				$$ = functionName;   
+			}
+	;
+
+funcprefix: FUNCTION funcname	{	SymbolTableEntry_t* newFunc = makeFuncEntry($2, userfunc);
+	  				$$ = newFunc;
+	  				struct expr* newExpr = makeExpression(programfunc_e, newFunc, NULL, NULL);//TODO: isws prepei na alla3oume ta NULL
+					//$$.iaddress = nextquadlabel() TODO na katalavoume ti skata :)
+					emit(FUNCSTART, NULL, NULL, newExpr, 0, newFunc->value.funcVal->line);//TODO: ti einai to line kai pou 8a gurisei h call argotera
+					//push ???? TODO
+					enterscopespace();
+					resetformalargsoffset();
+	  			}
+	  ;
+
+
+funcargs: PARENTHOPEN{currScope++; allocateScopes(currScope);} idlist {currScope--;}PARENTHCLOSE {enterscopespace(); resetfunctionlocalsoffset();}
+	;
+
+funcbody: block {$$ = currscopeoffset(); exitscopespace();}
+	;
+
+funcdef: funcprefix funcargs funcbody { exitscopespace();
+       					//TODO: $$.totallocals = $3;
+					//TODO: int offset = popandtop
+					//restorecurroffset(offset);
+					$$ = $1;
+					struct expr* newExpr = makeExpression(programfunc_e, $1, NULL, NULL);
+					emit(FUNCEND, NULL, NULL, newExpr, 0, $1->value.funcVal->line);
+				      }
+       					
        ;
 
 const: number {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = $1->gramType;
@@ -460,6 +488,7 @@ int main(int argc, char **argv) {
     	
 
 	printScopeLists();
+	printQuads();
 	//SymTable_map(symbolTable,printEntry,NULL);
 
     	return 0;
@@ -561,7 +590,7 @@ void emit(
 	unsigned label,
 	unsigned line
 	) {
-	
+
 	if(currQuad == total){
 		expand();
 	}
@@ -586,71 +615,80 @@ void printQuads(void){
 	fprintf(file,"Quad#   opcode        result         arg1         arg2         label\n");
 	fprintf(file,"--------------------------------------------------------------------\n");
 	
-	for(int i =0; i < total;i++){
+	for(int i =0; i < currQuad;i++){
 		
-		fprintf(file,"%d:   ",i);
+		//if((quads+i) == NULL) break;
+
+		fprintf(file,"%d:     ",i);
 		/*:))))))))))*/
 		switch (quads[i].op){
 				case ASSIGN:
-					fprintf(file,"assign        "); break;
+					fprintf(file,"assign         ");break;
 				case ADD:
-					fprintf(file,"add        ");  break;
+					fprintf(file,"add            ");break;
 				case SUB:
-					fprintf(file,"sub        "); break;
+					fprintf(file,"sub            ");break;
 				case MUL:
-					fprintf(file,"mul        ");   break;
+					fprintf(file,"mul            ");break;
 				case DIV:
-					fprintf(file,"div        ");break;
+					fprintf(file,"div            ");break;
 				case MOD:
-					fprintf(file,"mod        ");   break;
+					fprintf(file,"mod            ");break;
 				case UMINUS:
-					fprintf(file,"uminus        ");break;
+					fprintf(file,"uminus         ");break;
 				case OP_AND:
-					fprintf(file,"and        ");break;
+					fprintf(file,"and            ");break;
 				case OP_OR:
-					fprintf(file,"or        ");	   break;
+					fprintf(file,"or             ");break;
 				case OP_NOT:
-					fprintf(file,"not        ");break;
+					fprintf(file,"not            ");break;
 				case IF_EQ:
-					fprintf(file,"if_eq        ");break;
+					fprintf(file,"if_eq          ");break;
 				case IF_NOTEQ:
-					fprintf(file,"if_noteq        ");break;
+					fprintf(file,"if_noteq       ");break;
 				case IF_LESSEQ:
-					fprintf(file,"if_lesseq        ");break;
+					fprintf(file,"if_lesseq      ");break;
 				case IF_GREATEREQ:
-					fprintf(file,"if_greatereq        ");break;
+					fprintf(file,"if_greatereq   ");break;
 				case IF_LESS:
 					fprintf(file,"if_less        ");break;
 				case IF_GREATER:
-					fprintf(file,"if_greater        ");break;
+					fprintf(file,"if_greater     ");break;
 				case CALL:
-					fprintf(file,"call        ");break;
+					fprintf(file,"call           ");break;
 				case PARAM:
-					fprintf(file,"param        ");break;
+					fprintf(file,"param          ");break;
 				case RET:
-					fprintf(file,"ret        ");break;
+					fprintf(file,"ret            ");break;
 				case GETRETVAL:
-					fprintf(file,"getretval        ");break;
+					fprintf(file,"getretval      ");break;
 				case FUNCSTART:
-					fprintf(file,"funcstart        ");break;
+					fprintf(file,"funcstart      ");break;
 				case FUNCEND:
 					fprintf(file,"funcend        ");break;
 				case TABLECREATE:
-					fprintf(file,"tablecreate        ");break;
+					fprintf(file,"tablecreate    ");break;
 				case TABLEGETELEM:
-					fprintf(file,"tablegetelem        ");break;
+					fprintf(file,"tablegetelem   ");break;
 				case TABLESETELEM:
-					fprintf(file,"tablesetelem        ");break;
+					fprintf(file,"tablesetelem   ");break;
 				default:
-					fprintf(file,"unknownopcode        ");break;
+					fprintf(file,"unknownopcode  ");break;
 			}
 
 
 		
-		fprintf(file,"%s         %s         %s         ",quads[i].result->sym->symbol->name,quads[i].arg1->sym->symbol->name,quads[i].arg2->sym->symbol->name); 
+		if(quads[i].result == NULL) fprintf(file, "    -    ");
+		else fprintf(file, "%s        ", quads[i].result->sym->symbol->name);
+
+		if(quads[i].arg1 == NULL) fprintf(file, "    -    ");
+		else fprintf(file, "%s        ", quads[i].arg1->sym->symbol->name);
+
+		if(quads[i].arg2 == NULL) fprintf(file, "    -    ");
+		else fprintf(file, "%s        ", quads[i].arg2->sym->symbol->name); 
 		
 		if(quads[i].label == 0){
-			fprintf(file," \n");
+			fprintf(file," - \n");
 		}else{
 			fprintf(file,"%d\n",quads[i].label);
 		}
@@ -662,7 +700,7 @@ void printQuads(void){
 
 struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next){
 	
-	struct expr* newExpr;
+	struct expr* newExpr = malloc(sizeof(struct expr));
 	newExpr->type = type;
 	newExpr->sym = sym;
 	newExpr->index = index;
@@ -693,6 +731,16 @@ SymbolTableEntry_t* makeLibEntry(char *name){
 	entry->unionType = unionFunc;
 	entry->value.funcVal = f;
 	entry->type = libfunc;
+	
+	entry->symbol = malloc(sizeof(struct sym));
+
+	assert(entry->symbol);
+	
+	entry->symbol->name = name;
+	entry->symbol->type = libraryfunc_s;
+	entry->symbol->scopeSpace = currscopespace();
+	entry->symbol->offset = currscopeoffset();
+	inccurrscopeoffset();
 
     	insertToSymTable(currScope, f->name, entry);
 
@@ -720,6 +768,14 @@ SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type){
 	entry->type = type;
 
 	entry->symbol = malloc(sizeof(struct sym));
+	
+	assert(entry->symbol);
+	
+	entry->symbol->name = name;
+	entry->symbol->type = var_s;
+	entry->symbol->scopeSpace = currscopespace();
+	entry->symbol->offset = currscopeoffset();
+	inccurrscopeoffset();
 
     	insertToSymTable(currScope, v->name, entry);
 	return entry;
@@ -746,7 +802,17 @@ SymbolTableEntry_t* makeFuncEntry(char *name,enum SymbolType type){
 	entry->unionType = unionFunc;
 	entry->value.funcVal = f;
 	entry->type = type;
+
+	entry->symbol = malloc(sizeof(struct sym));
 	
+	assert(entry->symbol);
+
+	entry->symbol->name = name;
+	entry->symbol->type = programfunc_s;
+	entry->symbol->scopeSpace = currscopespace();
+	entry->symbol->offset = currscopeoffset();
+	inccurrscopeoffset();
+
 	insertToSymTable(currScope,f->name,entry);
 	printFuncArgs(f->arglist);
 	return entry;
