@@ -20,7 +20,7 @@ int currScope = 0;
 int anonymusFuncNum = 0;
 
 SymTable_T symbolTable;
-ScopeArray_t **ScopeLists = NULL;    //pinakas me listes me index ta scopes
+ScopeArray_t **ScopeLists = NULL;
 
 /*our functions*/
 SymbolTableEntry_t* makeLibEntry(char *name);
@@ -84,6 +84,7 @@ void  restorecurrscopeoffset(unsigned n);
 unsigned nextquadlabel(void);
 void patchlabel(unsigned quadNo,unsigned label);
 void printQuads(void);
+struct expr* newexpr_constnum(int value);
 struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next);  
 %}
 
@@ -121,11 +122,11 @@ struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct e
 
 %type<operatorVal> op
 
-%type<entryNode> lvalue member term primary const number /*:3*/
+%type<entryNode>  member number /*:3*/
 
 %type<entryNode> call stmt
 
-%type<exprNode> expr
+%type<exprNode> expr term primary const assignexpr lvalue
 
 %type<idVal> funcname
 
@@ -171,12 +172,7 @@ stmt: expr SEMICOLON
 
 expr: assignexpr
     | expr op expr %prec PLUS {printf("%d %s %d\n",$1->sym->grammarVal.boolean,$2,$3->sym->grammarVal.boolean);}
-    | term {$$ = malloc(sizeof(struct expr)); /*gemise to expr*/ $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->gramType = $1->gramType; 
-    	if($1->gramType == gr_integer) $$->sym->grammarVal.intNum = $1->grammarVal.intNum;
-	else if($1->gramType == gr_real) $$->sym->grammarVal.realNum = $1->grammarVal.realNum;
-	else if($1->gramType == gr_string) $$->sym->grammarVal.string = $1->grammarVal.string;
-	else if($1->gramType == gr_nil) $$->sym->grammarVal.nil = $1->grammarVal.nil;
-	else if($1->gramType == gr_boolean) $$->sym->grammarVal.boolean = $1->grammarVal.boolean;}
+    | term { $$ = makeExpression($1->type,$1->sym,NULL,NULL); }
     ;
 
 op: PLUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
@@ -197,43 +193,51 @@ op: PLUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
 term: PARENTHOPEN expr PARENTHCLOSE
     | MINUS expr
     | NOT expr
-    | PLUSPLUS lvalue
-    | lvalue PLUSPLUS
-    | MINUSMINUS lvalue {checkArithmetic($2);}
-    | lvalue MINUSMINUS
-    | primary {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = $1->gramType; 
-    		if($1->gramType == gr_integer) $$->grammarVal.intNum = $1->grammarVal.intNum;
-		else if($1->gramType == gr_real) $$->grammarVal.realNum = $1->grammarVal.realNum;
-		else if($1->gramType == gr_string) $$->grammarVal.string = $1->grammarVal.string;
-		else if($1->gramType == gr_nil) $$->grammarVal.nil = $1->grammarVal.nil;
-		else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;}
+    | PLUSPLUS lvalue {checkArithmetic($2);
+    		       //DIALEKSH 10 DIAFANEIA 34?
+		       //TODO:if table do stuff else 
+			emit(ADD,$2,newexpr_constnum(1),$2,0,$2->sym->value.varVal->line);
+			$$ = makeExpression(arithexpr_e,$2,NULL,NULL);
+			$$->sym = newtemp();
+			emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);
+		      }
+    | lvalue PLUSPLUS {
+    			 checkArithmetic($1);
+			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
+			 $$->sym = newtemp();
+    		         //DIALEKSH 10 DIAFANEIA 34?
+		         //TODO:if table do stuff else 
+			 emit(ASSIGN,$1,NULL,$$,0,$1->sym->value.varVal->line);
+			 emit(ADD,$1,newexpr_constnum(1),$1,0,$1->sym->value.varVal->line);
+    			
+    		      }
+    | MINUSMINUS lvalue { checkArithmetic($2); 
+    		         //dialeksh 10 diafaneia 34?
+		         //todo:if table do stuff else 	
+			 emit(ADD,$2,newexpr_constnum(-1),$2,0,$2->sym->value.varVal->line);
+			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
+			 $$->sym = newtemp();
+			 emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);}
+    | lvalue MINUSMINUS {
+    			 checkArithmetic($1);
+			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
+			 $$->sym = newtemp();
+    		         //DIALEKSH 10 DIAFANEIA 34?
+		         //TODO:if table do stuff else 
+			 emit(ASSIGN,$1,NULL,$$,0,$1->sym->value.varVal->line);
+			 emit(ADD,$1,newexpr_constnum(-1),$1,0,$1->sym->value.varVal->line);
+			}
+    | primary {$$ = makeExpression($1->type,$1->sym,NULL,NULL);}
     ;
 
-assignexpr: lvalue EQUAL expr {$1->gramType = $3->sym->gramType;
-	  	if($1->gramType == gr_integer){
-			$1->grammarVal.intNum = $3->sym->grammarVal.intNum;
-		}else if($1->gramType == gr_real){
-			$1->grammarVal.realNum = $3->sym->grammarVal.realNum;
-		}else if($1->gramType == gr_string){
-			$1->grammarVal.string = malloc(sizeof(char) * strlen($3->sym->grammarVal.string) + 1);
-			strcpy($1->grammarVal.string,$3->sym->grammarVal.string);
-		}else{
-			$1->grammarVal.nil = $3->sym->grammarVal.nil;
-		}
-		printf("%d\n",$1->grammarVal.intNum);
-	  }
+assignexpr: lvalue EQUAL expr {$$ = makeExpression(assignexpr_e,$1,NULL,NULL); $1 = $3->sym;}
 	  ;
 
-primary: lvalue {printf("%s\n", $1->value.varVal->name);}
+primary: lvalue {printf("%s\n", $1->sym->value.varVal->name);}
        | call
        | objectdef
        | PARENTHOPEN funcdef PARENTHCLOSE
-       | const {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = $1->gramType; 
-       		if($1->gramType == gr_integer) $$->grammarVal.intNum = $1->grammarVal.intNum;
-		else if($1->gramType == gr_real) $$->grammarVal.realNum = $1->grammarVal.realNum;
-		else if($1->gramType == gr_string) $$->grammarVal.string = $1->grammarVal.string;
-		else if($1->gramType == gr_nil) $$->grammarVal.nil = $1->grammarVal.nil;
-	else if($1->gramType == gr_boolean) $$->grammarVal.boolean = $1->grammarVal.boolean;} 
+       | const {$$ = makeExpression($1->type,$1->sym,NULL,NULL); }
        ;
 
 lvalue: IDENTIFIER		{
@@ -247,15 +251,11 @@ lvalue: IDENTIFIER		{
 											if(res->value.varVal->scope != currScope){
 												yyerror("Not accesible variable");
 											}
-										}/*else{
-											if(res->value.funcVal->scope != currScope){
-												yyerror("Not accesible function");
-											}
-										}*/
+										}
 									}
 								}
 								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));} 
-								$$ = res;
+								$$ = makeExpression(var_e,res,NULL,NULL);
 							}else yyerror("existing library function with same name");
 
 						}
@@ -345,15 +345,11 @@ stmt_list: program
 
 
 funcname: IDENTIFIER	    {	
-       				//currScope++; 
-				//allocateScopes(currScope);
 				if(!libFuncCheck($1)) yyerror("existing library function with same name"); 
 				$$ = $1;
 			     }
 
 	|		    {	
-       				//currScope++; 
-				//allocateScopes(currScope);
 				int stringLength = snprintf(NULL,0,"%d",anonymusFuncNum);
        				char* functionName = (char*)malloc(strlen("_anonymusfunc") + stringLength + 1);
 				snprintf(functionName,stringLength + 1 + strlen("_anonymusfunc"),"_anonymusfunc%d",anonymusFuncNum);
@@ -364,9 +360,9 @@ funcname: IDENTIFIER	    {
 
 funcprefix: FUNCTION funcname	{	SymbolTableEntry_t* newFunc = makeFuncEntry($2, userfunc);
 	  				$$ = newFunc;
-	  				struct expr* newExpr = makeExpression(programfunc_e, newFunc, NULL, NULL);//TODO: isws prepei na alla3oume ta NULL
-					//$$.iaddress = nextquadlabel() TODO na katalavoume ti skata :)
-					emit(FUNCSTART, NULL, NULL, newExpr, 0, newFunc->value.funcVal->line);//TODO: ti einai to line kai pou 8a gurisei h call argotera
+	  				struct expr* newExpr = makeExpression(programfunc_e, newFunc, NULL, NULL);
+					$$->value.funcVal->qaddress = nextquadlabel();
+					emit(FUNCSTART, NULL, NULL, newExpr, 0, newFunc->value.funcVal->line);//TODO: ti einai to line
 					//push ???? TODO
 					enterscopespace();
 					resetformalargsoffset();
@@ -381,7 +377,7 @@ funcbody: block {$$ = currscopeoffset(); exitscopespace();}
 	;
 
 funcdef: funcprefix funcargs funcbody { exitscopespace();
-       					//TODO: $$.totallocals = $3;
+       					 $$->value.funcVal->totallocals = $3;
 					//TODO: int offset = popandtop
 					//restorecurroffset(offset);
 					$$ = $1;
@@ -391,20 +387,31 @@ funcdef: funcprefix funcargs funcbody { exitscopespace();
        					
        ;
 
-const: number {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = $1->gramType;
-     		($1->gramType == gr_integer) ? ($$->grammarVal.intNum = $1->grammarVal.intNum) : ($$->grammarVal.realNum = $1->grammarVal.realNum); } 
-     | STRING {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = gr_string; $$->grammarVal.string = malloc(strlen($1)+1); strcpy($$->grammarVal.string, $1);}
-     | NIL {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = gr_nil; $$->grammarVal.nil = 1;}
-     | TRUE {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = gr_boolean; $$->grammarVal.boolean = 1;}
-     | FALSE {$$ = malloc(sizeof(SymbolTableEntry_t)); $$->gramType = gr_boolean; $$->grammarVal.boolean = 0;}
+const: number {$$ = malloc(sizeof(struct expr)); $$->sym = $1; $$->type = constnum_e; $$->index = NULL; $$->next = NULL;  } 
+     | STRING {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->gramType = gr_string; $$->sym->grammarVal.string = malloc(strlen($1)+1); 
+     		strcpy($$->sym->grammarVal.string, $1); $$->type = conststring_e; $$->index = NULL; $$->next = NULL;}
+     | NIL {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->gramType = gr_nil; $$->sym->grammarVal.nil = 1; $$->type = nil_e; $$->index = NULL;
+     		$$->next = NULL;}
+     | TRUE {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->gramType = gr_boolean; $$->sym->grammarVal.boolean = 1; $$->type = constbool_e; 
+     		$$->index = NULL; $$->next = NULL;}
+     | FALSE {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->gramType = gr_boolean; $$->sym->grammarVal.boolean = 0; $$->type = constbool_e; 
+     		$$->index = NULL;$$->next = NULL;}
      ;
 
 number: INTEGER {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = gr_integer; $$->grammarVal.intNum = $1;}
       | REAL{$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = gr_real; $$->grammarVal.realNum = $1;}
       ;
 
-idlist: IDENTIFIER {makeVariableEntry($1,formal);/*printf("Added Argument: %s\n",$1);*/}
-      | idlist COMMA IDENTIFIER {makeVariableEntry($3,formal);/*printf("Added another Argument: %s\n",$3);*/}
+idlist: IDENTIFIER {SymbolTableEntry_t* res = scopeLookUp(currScope,$1);
+      		    if(res != NULL){
+		    	yyerror("Same formal argument given ");
+		    }
+		    makeVariableEntry($1,formal);}
+      | idlist COMMA IDENTIFIER {SymbolTableEntry_t* res = scopeLookUp(currScope,$3);
+      				 if(res != NULL){
+				 	yyerror("Same formal argument given ");
+				 }
+				 makeVariableEntry($3,formal);}
       |
       ;
 
@@ -710,6 +717,18 @@ struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct e
 
 }
 
+struct expr* newexpr_constnum(int value){
+	int length = snprintf(NULL,0,"%d",value);
+	SymbolTableEntry_t* newentry = malloc(sizeof(SymbolTableEntry_t));
+	newentry->symbol = malloc(sizeof(struct sym));
+	newentry->symbol->name = malloc(length + 1);
+	snprintf(newentry->symbol->name,length + 1,"%d",value);
+	newentry->grammarVal.intNum = value;
+	newentry->gramType = gr_constinteger;
+	struct expr* newexpr = makeExpression(constnum_e,newentry,NULL,NULL);
+	return newexpr;
+}
+
 /*end of phase3*/
 
 SymbolTableEntry_t* makeLibEntry(char *name){
@@ -780,7 +799,6 @@ SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type){
     	insertToSymTable(currScope, v->name, entry);
 	return entry;
 }
-
 SymbolTableEntry_t* makeFuncEntry(char *name,enum SymbolType type){
 	SymbolTableEntry_t *entry;
 	Function_t *f;

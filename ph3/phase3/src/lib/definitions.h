@@ -35,6 +35,8 @@ typedef struct Function{
 	FunctArgNode_t *arglist;
 	unsigned int scope;
 	unsigned int line;
+	unsigned int qaddress;
+	unsigned int totallocals;
 }Function_t;
 
 enum SymbolType{
