@@ -230,7 +230,13 @@ term: PARENTHOPEN expr PARENTHCLOSE
     | primary {$$ = makeExpression($1->type,$1->sym,NULL,NULL);}
     ;
 
-assignexpr: lvalue EQUAL expr {$$ = makeExpression(assignexpr_e,$1,NULL,NULL); $1 = $3->sym;}
+assignexpr: lvalue EQUAL expr {
+								//TODO: if tableelem diale3h 10 slide 23 else
+								emit(ASSIGN, $3, NULL, $1, 0, $1->sym->value.varVal->line);
+								$$ = makeExpression(assignexpr_e,$1,NULL,NULL); 
+								$$->sym = newtemp();
+								emit(ASSIGN, $1, NULL, $$, 0, $1->sym->value.varVal->line);
+							   }
 	  ;
 
 primary: lvalue {printf("%s\n", $1->sym->value.varVal->name);}
@@ -398,8 +404,21 @@ const: number {$$ = malloc(sizeof(struct expr)); $$->sym = $1; $$->type = constn
      		$$->index = NULL;$$->next = NULL;}
      ;
 
-number: INTEGER {$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = gr_integer; $$->grammarVal.intNum = $1;}
-      | REAL{$$ = malloc(sizeof(SymbolTableEntry_t));$$->gramType = gr_real; $$->grammarVal.realNum = $1;}
+number: INTEGER {$$ = malloc(sizeof(SymbolTableEntry_t));
+                    int length = snprintf(NULL,0,"%d",$1);
+                    $$->symbol = malloc(sizeof(struct sym));
+                    $$->symbol->name = malloc(length + 1);
+                    snprintf($$->symbol->name,length + 1,"%d",$1);
+                    $$->gramType = gr_integer;
+                    $$->grammarVal.intNum = $1;
+                }
+      | REAL{$$ = malloc(sizeof(SymbolTableEntry_t));
+                                int length = snprintf(NULL,0,"%f",$1);
+                                 $$->symbol = malloc(sizeof(struct sym));
+                                 $$->symbol->name = malloc(length + 1);
+                                 snprintf($$->symbol->name,length + 1,"%f",$1);
+                                 $$->gramType = gr_real;
+                                 $$->grammarVal.realNum = $1;}
       ;
 
 idlist: IDENTIFIER {SymbolTableEntry_t* res = scopeLookUp(currScope,$1);
