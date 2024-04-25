@@ -692,84 +692,83 @@ void printQuads(void){
 	if(file == NULL){
 		yyerror("Couldnt make quads.txt file");
 	}
-	
-	fprintf(file,"Quad#   opcode        result         arg1         arg2         label\n");
-	fprintf(file,"--------------------------------------------------------------------\n");
+
+	fprintf(file, "%-8s %-20s %-20s %-20s %-20s %-20s\n", "Quad#", "opcode", "result", "arg1", "arg2", "label");
+	fprintf(file,"-------------------------------------------------------------------------------------------------------------\n");
 	
 	for(int i =0; i < currQuad;i++){
 		
-		//if((quads+i) == NULL) break;
 
-		fprintf(file,"%d:     ",i);
+		fprintf(file,"%-8d",i);
 		/*:))))))))))*/
 		switch (quads[i].op){
 				case ASSIGN:
-					fprintf(file,"assign         ");break;
+					fprintf(file,"%-20s ", "assign");break;
 				case ADD:
-					fprintf(file,"add            ");break;
+					fprintf(file,"%-20s ","add");break;
 				case SUB:
-					fprintf(file,"sub            ");break;
+					fprintf(file,"%-20s ","sub");break;
 				case MUL:
-					fprintf(file,"mul            ");break;
+					fprintf(file,"%-20s ","mul");break;
 				case DIV:
-					fprintf(file,"div            ");break;
+					fprintf(file,"%-20s ","div");break;
 				case MOD:
-					fprintf(file,"mod            ");break;
+					fprintf(file,"%-20s ","mod");break;
 				case UMINUS:
-					fprintf(file,"uminus         ");break;
+					fprintf(file,"%-20s ","uminus");break;
 				case OP_AND:
-					fprintf(file,"and            ");break;
+					fprintf(file,"%-20s ","and");break;
 				case OP_OR:
-					fprintf(file,"or             ");break;
+					fprintf(file,"%-20s ","or");break;
 				case OP_NOT:
-					fprintf(file,"not            ");break;
+					fprintf(file,"%-20s ","not");break;
 				case IF_EQ:
-					fprintf(file,"if_eq          ");break;
+					fprintf(file,"%-20s ","if_eq");break;
 				case IF_NOTEQ:
-					fprintf(file,"if_noteq       ");break;
+					fprintf(file,"%-20s ","if_noteq");break;
 				case IF_LESSEQ:
-					fprintf(file,"if_lesseq      ");break;
+					fprintf(file,"%-20s ","if_lesseq ");break;
 				case IF_GREATEREQ:
-					fprintf(file,"if_greatereq   ");break;
+					fprintf(file,"%-20s ","if_greatereq");break;
 				case IF_LESS:
-					fprintf(file,"if_less        ");break;
+					fprintf(file,"%-20s ","if_less");break;
 				case IF_GREATER:
-					fprintf(file,"if_greater     ");break;
+					fprintf(file,"%-20s ","if_greater");break;
 				case CALL:
-					fprintf(file,"call           ");break;
+					fprintf(file,"%-20s ","call");break;
 				case PARAM:
-					fprintf(file,"param          ");break;
+					fprintf(file,"%-20s ","param");break;
 				case RET:
-					fprintf(file,"ret            ");break;
+					fprintf(file,"%-20s ","ret");break;
 				case GETRETVAL:
-					fprintf(file,"getretval      ");break;
+					fprintf(file,"%-20s ","getretval");break;
 				case FUNCSTART:
-					fprintf(file,"funcstart      ");break;
+					fprintf(file,"%-20s ","funcstart");break;
 				case FUNCEND:
-					fprintf(file,"funcend        ");break;
+					fprintf(file,"%-20s ","funcend");break;
 				case TABLECREATE:
-					fprintf(file,"tablecreate    ");break;
+					fprintf(file,"%-20s ","tablecreate");break;
 				case TABLEGETELEM:
-					fprintf(file,"tablegetelem   ");break;
+					fprintf(file,"%-20s ","tablegetelem");break;
 				case TABLESETELEM:
-					fprintf(file,"tablesetelem   ");break;
+					fprintf(file,"%-20s ","tablesetelem");break;
 				default:
-					fprintf(file,"unknownopcode  ");break;
+					fprintf(file,"%-20s ","unknownopcode");break;
 			}
 
 
 		
-		if(quads[i].result == NULL) fprintf(file, "    -    ");
-		else fprintf(file, "%s        ", quads[i].result->sym->symbol->name);
+		if(quads[i].result == NULL) fprintf(file,"%-20s", "-");
+		else fprintf(file, "%-20s", quads[i].result->sym->symbol->name);
 
-		if(quads[i].arg1 == NULL) fprintf(file, "    -    ");
-		else fprintf(file, "%s        ", quads[i].arg1->sym->symbol->name);
+		if(quads[i].arg1 == NULL) fprintf(file, "%-20s", "-");
+		else fprintf(file, "%-20s", quads[i].arg1->sym->symbol->name);
 
-		if(quads[i].arg2 == NULL) fprintf(file, "    -    ");
-		else fprintf(file, "%s        ", quads[i].arg2->sym->symbol->name); 
+		if(quads[i].arg2 == NULL) fprintf(file, "%-20s", "-");
+		else fprintf(file, "%-20s", quads[i].arg2->sym->symbol->name); 
 		
 		if(quads[i].label == 0){
-			fprintf(file," - \n");
+			fprintf(file,"%-20s\n", "-");
 		}else{
 			fprintf(file,"%d\n",quads[i].label);
 		}
