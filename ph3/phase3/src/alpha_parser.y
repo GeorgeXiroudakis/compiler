@@ -86,6 +86,7 @@ void patchlabel(unsigned quadNo,unsigned label);
 void printQuads(void);
 struct expr* newexpr_constnum(int value);
 struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next);  
+struct expr* makeCall(struct expr* lv);
 %}
 
 %start program
@@ -101,6 +102,7 @@ struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct e
 	double	realVal;
 	struct	SymbolTableEntry* entryNode;
 	struct expr* exprNode;
+	struct FunctArgNode* argNode;
 }
 
 
@@ -124,15 +126,17 @@ struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct e
 
 %type<entryNode>  member number /*:3*/
 
-%type<entryNode> call stmt
+%type<entryNode> stmt
 
-%type<exprNode> expr term primary const assignexpr lvalue
+%type<exprNode> call expr term primary const assignexpr lvalue lvalue2
 
 %type<idVal> funcname
 
 %type<unsignedVal> funcbody
 
 %type<entryNode> funcdef funcprefix
+
+%type<argNode> funcargs
 
 
 
@@ -190,9 +194,15 @@ op: PLUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
   | OR{$$ = malloc(3 * sizeof(char)); $$ = $1;}
   ;
 
-term: PARENTHOPEN expr PARENTHCLOSE
-    | MINUS expr
-    | NOT expr
+term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
+    | MINUS expr {checkArithmetic($2);
+    		  $$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
+		  emit(UMINUS,$2,NULL,$$,0,$2->sym->value.varVal->line);
+		 }
+    | NOT expr {
+    	       	$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
+		emit(OP_NOT,$2,NULL,$$,0,$2->sym->value.varVal->line);
+	       }
     | PLUSPLUS lvalue {checkArithmetic($2);
     		       //DIALEKSH 10 DIAFANEIA 34?
 		       //TODO:if table do stuff else 
@@ -285,6 +295,13 @@ lvalue2: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 									//else if(res->type == userfunc && res->value.funcVal->scope != currScope) yyerror("Not accesible function");
 								 	else printf("caling function %s\n", res->value.varVal->name);
 								 }else yyerror("Function not found");
+								
+								 if(res->type == userfunc){
+									 $$ = makeExpression(programfunc_e,res,NULL,NULL);
+								 }else{
+								 	 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
+								 }
+								 
 						}		
 	   | DOUBLECOLON IDENTIFIER	{SymbolTableEntry_t *res = upStreamLookUp(0,$2);
 								 if(res != NULL){
@@ -302,8 +319,12 @@ member: lvalue DOT IDENTIFIER
       | call SQBRACKETOPEN expr SQBRACKETCLOSE
       ;
 
-call: call PARENTHOPEN elist PARENTHCLOSE
-    | lvalue2 callsuffix  
+call: call PARENTHOPEN elist PARENTHCLOSE {
+    					   $$ = makeCall($$);
+					  }
+    | lvalue2 callsuffix {
+    			  $$ = makeCall($$);
+    			 }
     | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE
     ;
 
@@ -376,7 +397,7 @@ funcprefix: FUNCTION funcname	{	SymbolTableEntry_t* newFunc = makeFuncEntry($2, 
 	  ;
 
 
-funcargs: PARENTHOPEN{currScope++; allocateScopes(currScope);} idlist {currScope--;}PARENTHCLOSE {enterscopespace(); resetfunctionlocalsoffset();}
+funcargs: PARENTHOPEN{currScope++; allocateScopes(currScope);} idlist {currScope--;}PARENTHCLOSE {$$ = makeFuncArgList(NULL,currScope); enterscopespace(); resetfunctionlocalsoffset();}
 	;
 
 funcbody: block {$$ = currscopeoffset(); exitscopespace();}
@@ -386,6 +407,7 @@ funcdef: funcprefix funcargs funcbody { exitscopespace();
        					 $$->value.funcVal->totallocals = $3;
 					//TODO: int offset = popandtop
 					//restorecurroffset(offset);
+					$1->value.funcVal->arglist = $2;
 					$$ = $1;
 					struct expr* newExpr = makeExpression(programfunc_e, $1, NULL, NULL);
 					emit(FUNCEND, NULL, NULL, newExpr, 0, $1->value.funcVal->line);
@@ -394,13 +416,17 @@ funcdef: funcprefix funcargs funcbody { exitscopespace();
        ;
 
 const: number {$$ = malloc(sizeof(struct expr)); $$->sym = $1; $$->type = constnum_e; $$->index = NULL; $$->next = NULL;  } 
-     | STRING {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->gramType = gr_string; $$->sym->grammarVal.string = malloc(strlen($1)+1); 
+     | STRING {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->symbol = malloc(sizeof(struct sym)); $$->sym->gramType = gr_string; 
+     		$$->sym->symbol->name = "const_string"; $$->sym->grammarVal.string = malloc(strlen($1)+1); 
      		strcpy($$->sym->grammarVal.string, $1); $$->type = conststring_e; $$->index = NULL; $$->next = NULL;}
-     | NIL {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->gramType = gr_nil; $$->sym->grammarVal.nil = 1; $$->type = nil_e; $$->index = NULL;
+     | NIL {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->symbol = malloc(sizeof(struct sym)); $$->sym->gramType = gr_nil; 
+     		$$->sym->symbol->name = "nil"; $$->sym->grammarVal.nil = 1; $$->type = nil_e; $$->index = NULL;
      		$$->next = NULL;}
-     | TRUE {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->gramType = gr_boolean; $$->sym->grammarVal.boolean = 1; $$->type = constbool_e; 
+     | TRUE {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->symbol = malloc(sizeof(struct sym));$$->sym->gramType = gr_boolean; 
+     		$$->sym->symbol->name = "const_true"; $$->sym->grammarVal.boolean = 1; $$->type = constbool_e; 
      		$$->index = NULL; $$->next = NULL;}
-     | FALSE {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->gramType = gr_boolean; $$->sym->grammarVal.boolean = 0; $$->type = constbool_e; 
+     | FALSE {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->symbol = malloc(sizeof(struct sym));$$->sym->gramType = gr_boolean;
+     		$$->sym->symbol->name = "const_false";$$->sym->grammarVal.boolean = 0; $$->type = constbool_e; 
      		$$->index = NULL;$$->next = NULL;}
      ;
 
@@ -628,6 +654,35 @@ void emit(
 	p->result = result;
 	p->label = label;
 	p->line = line;
+}
+
+FunctArgNode_t* reverseList(FunctArgNode_t* head) {
+     FunctArgNode_t  *prev = NULL, *current = head, *next = NULL;
+        while (current != NULL) {
+	        next = current->next;
+		current->next = prev;
+		prev = current;
+		current = next;
+	}
+	return prev;
+}
+
+
+struct expr* makeCall(struct expr* lv){
+	struct expr* func = emit_iftableitem(lv);
+	FunctArgNode_t* head = func->sym->value.funcVal->arglist;
+	FunctArgNode_t* reversed = NULL;
+	
+	reversed = reverseList(head);
+	while(reversed != NULL){
+		struct expr* temp = makeExpression(var_e,reversed->arg,NULL,NULL);
+		emit(PARAM,temp,NULL,NULL,0,func->sym->value.funcVal->line);
+		reversed = reversed->next;
+	}
+	emit(CALL,func,NULL,NULL,0,func->sym->value.funcVal->line);
+	struct expr* result = makeExpression(var_e,newtemp(),NULL,NULL);
+	emit(GETRETVAL,NULL,NULL,result,0,func->sym->value.funcVal->line);
+	return result;
 }
 
 void printQuads(void){
@@ -1118,17 +1173,17 @@ void printScopeLists(){
 }
 
 /*phase 3*/
-/*struct expr* emit_iftableitem(struct expr* e){
+struct expr* emit_iftableitem(struct expr* e){
 	if(e->type != tableitem_e)
 		return e;
-	else {
+	/*else {
 		struct expr* result = newexpr(var_e);
 		result->sym->symbol = newtemp();
 		//emit(TABLEGETELEM, e, e->index, result); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BAM
 		return result;
-	}
+	}*/
 }
-
+/*
 struct expr* member_item(struct expr* lvalue, char* name){
 	lvalue = emit_iftableitem(lvalue);
 	struct expr* item = newexpr(tableitem_e);

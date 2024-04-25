@@ -26,7 +26,7 @@ typedef struct variable{
 
 typedef struct FunctArgNode{
 	struct SymbolTableEntry *arg;
-
+	//struct FunctArgNode *prev;
 	struct FunctArgNode *next;
 }FunctArgNode_t;
 
@@ -123,7 +123,4 @@ struct quad {
 	unsigned label;
 	unsigned line;
 };
-
-
-
 
