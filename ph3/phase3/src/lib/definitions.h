@@ -124,3 +124,8 @@ struct quad {
 	unsigned line;
 };
 
+struct exprNode {
+	struct expr* node;
+	struct exprNode* next;
+};
+

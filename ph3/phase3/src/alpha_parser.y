@@ -48,6 +48,7 @@ unsigned int currQuad = 0;
 
 int tempcounter = 0;
 int scopeoffset = 0;
+int elistFlag = 0;
 
 
 unsigned programVarOffset = 0;
@@ -86,7 +87,8 @@ void patchlabel(unsigned quadNo,unsigned label);
 void printQuads(void);
 struct expr* newexpr_constnum(int value);
 struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next);  
-struct expr* makeCall(struct expr* lv);
+struct expr* makeCall(struct expr* lv,struct exprNode* head);
+
 %}
 
 %start program
@@ -102,6 +104,7 @@ struct expr* makeCall(struct expr* lv);
 	double	realVal;
 	struct	SymbolTableEntry* entryNode;
 	struct expr* exprNode;
+	struct exprNode* exprList;
 	struct FunctArgNode* argNode;
 }
 
@@ -122,6 +125,7 @@ struct expr* makeCall(struct expr* lv);
 %token<idVal> IDENTIFIER WRONGIDENT
 
 
+
 %type<operatorVal> op
 
 %type<entryNode>  member number /*:3*/
@@ -129,6 +133,8 @@ struct expr* makeCall(struct expr* lv);
 %type<entryNode> stmt
 
 %type<exprNode> call expr term primary const assignexpr lvalue lvalue2
+
+%type<exprList> elist normcall methodcall callsuffix
 
 %type<idVal> funcname
 
@@ -221,10 +227,18 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 			 emit(ADD,$1,newexpr_constnum(1),$1,0,$1->sym->value.varVal->line);
     			
     		      }
-    | MINUSMINUS lvalue { checkArithmetic($2); 
+    | MINUSMINUS lvalue { 
+    			 checkArithmetic($2); 
+			 if($2->type == conststring_e) printf("YES\n");
+			 //else printf("NO\n");
     		         //dialeksh 10 diafaneia 34?
 		         //todo:if table do stuff else 	
-			 emit(ADD,$2,newexpr_constnum(-1),$2,0,$2->sym->value.varVal->line);
+			 emit(ADD,
+			 $2,
+			 newexpr_constnum(-1)
+			 ,$2
+			 ,0
+			 ,/*$2->sym->value.varVal->line*/0);
 			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
 			 $$->sym = newtemp();
 			 emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);}
@@ -242,8 +256,14 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 
 assignexpr: lvalue EQUAL expr {
 								//TODO: if tableelem diale3h 10 slide 23 else
-								emit(ASSIGN, $3, NULL, $1, 0, $1->sym->value.varVal->line);
+								$1->sym->gramType = $3->sym->gramType;
+								$1->type = $3->type;
+								emit(ASSIGN,$3, NULL, $1,0, $1->sym->value.varVal->line);
 								$$ = makeExpression(assignexpr_e,$1,NULL,NULL); 
+								if($3->type == conststring_e) printf("YES\n");
+								else printf("NO\n");
+								//$1->sym->gramType = $3->sym->gramType;
+								//$1->type = $3->type;
 								$$->sym = newtemp();
 								emit(ASSIGN, $1, NULL, $$, 0, $1->sym->value.varVal->line);
 							   }
@@ -259,7 +279,7 @@ primary: lvalue {printf("%s\n", $1->sym->value.varVal->name);}
 lvalue: IDENTIFIER		{
 							if(libFuncCheck($1)){ 
 								SymbolTableEntry_t *res = upStreamLookUp(currScope, $1);
-								if(res!=NULL){
+								if(res != NULL){
 									if(res->type == libfunc )yyerror("Redifinition of token");
 									else if(res->type == userfunc)yyerror("function used as an lvalue");
 									else if(res->type != global){
@@ -269,9 +289,15 @@ lvalue: IDENTIFIER		{
 											}
 										}
 									}
+									if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);	
+									else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
+									else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
 								}
-								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));} 
-								$$ = makeExpression(var_e,res,NULL,NULL);
+								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));
+									$$ = makeExpression(var_e,res,NULL,NULL);
+									
+									
+								}
 							}else yyerror("existing library function with same name");
 
 						}
@@ -320,27 +346,84 @@ member: lvalue DOT IDENTIFIER
       ;
 
 call: call PARENTHOPEN elist PARENTHCLOSE {
-    					   $$ = makeCall($$);
+    					   $$ = makeCall($$,$3);
+					   elistFlag = 0;
 					  }
     | lvalue2 callsuffix {
-    			  $$ = makeCall($$);
+    			  $1 = emit_iftableitem($1);
+			 /*TODO if(callsuffix.method){
+			 	get_last($2.elist)->next  = $1;	
+			 }
+			 */
+			  $$ = makeCall($$,$2);
+			  elistFlag = 0;
     			 }
-    | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE
+    | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE {
+    								      	struct expr* func = makeExpression(programfunc_e,$2,NULL,NULL);
+									$$ = makeCall(func,$5);
+									elistFlag = 0;
+								      }
     ;
 
-callsuffix: normcall
+callsuffix: normcall {$$ = $1;}
 	  | methodcall
 	  ;
 
-normcall: PARENTHOPEN elist PARENTHCLOSE
+normcall: PARENTHOPEN elist PARENTHCLOSE { $$ = $2;printf("Elist is %d\n",$2);}
 	;
 
 methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE 
 	  ;
 
-elist: expr 
-     | elist COMMA expr
-	 |
+elist: expr		 {
+				if(elistFlag == 0){
+					elistFlag = 1;
+					$$ = NULL;
+				}
+
+				if($$ == NULL){
+					$$ = malloc(sizeof(struct exprNode));
+					$$->node = $1;
+					$$->next = NULL;
+				}else{
+					struct exprNode* newnode = malloc(sizeof(struct exprNode));
+					newnode->node = $1;
+					newnode->next = NULL;
+					struct exprNode* temp = $$;
+					
+					while(temp->next != NULL){
+						temp = temp->next;
+					}
+					temp->next = newnode;
+				}
+				
+			 } 
+     | elist COMMA expr  {
+     				if(elistFlag == 0){
+					elistFlag = 1;
+					$$ = NULL;
+				}
+
+				if($$ == NULL){
+					$$ = malloc(sizeof(struct exprNode));
+					$$->node = $3;
+					$$->next = NULL;
+
+				}else{
+					struct exprNode* newnode = malloc(sizeof(struct exprNode));
+					newnode->node = $3;
+					newnode->next = NULL;
+					struct exprNode* temp = $$;
+					
+					while(temp->next != NULL){
+						temp = temp->next;
+					}
+					temp->next = newnode;
+				}
+
+
+			 }
+     |
      ;
 
 indexed: indexedelem
@@ -416,7 +499,8 @@ funcdef: funcprefix funcargs funcbody { exitscopespace();
        ;
 
 const: number {$$ = malloc(sizeof(struct expr)); $$->sym = $1; $$->type = constnum_e; $$->index = NULL; $$->next = NULL;  } 
-     | STRING {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->symbol = malloc(sizeof(struct sym)); $$->sym->gramType = gr_string; 
+     | STRING {$$ = malloc(sizeof(struct expr)); $$->type = conststring_e;$$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->symbol = malloc(sizeof(struct sym)); 
+     		$$->sym->gramType = gr_conststring; 
      		$$->sym->symbol->name = "const_string"; $$->sym->grammarVal.string = malloc(strlen($1)+1); 
      		strcpy($$->sym->grammarVal.string, $1); $$->type = conststring_e; $$->index = NULL; $$->next = NULL;}
      | NIL {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->symbol = malloc(sizeof(struct sym)); $$->sym->gramType = gr_nil; 
@@ -668,15 +752,15 @@ FunctArgNode_t* reverseList(FunctArgNode_t* head) {
 }
 
 
-struct expr* makeCall(struct expr* lv){
+struct expr* makeCall(struct expr* lv,struct exprNode* head){
 	struct expr* func = emit_iftableitem(lv);
-	FunctArgNode_t* head = func->sym->value.funcVal->arglist;
-	FunctArgNode_t* reversed = NULL;
+	//FunctArgNode_t* head = func->sym->value.funcVal->arglist;
+	struct exprNode* reversed = NULL;
 	
 	reversed = reverseList(head);
 	while(reversed != NULL){
-		struct expr* temp = makeExpression(var_e,reversed->arg,NULL,NULL);
-		emit(PARAM,temp,NULL,NULL,0,func->sym->value.funcVal->line);
+		//struct expr* temp = makeExpression(var_e,reversed->arg,NULL,NULL);
+		emit(PARAM,reversed->node,NULL,NULL,0,func->sym->value.funcVal->line);
 		reversed = reversed->next;
 	}
 	emit(CALL,func,NULL,NULL,0,func->sym->value.funcVal->line);
@@ -1191,12 +1275,13 @@ struct expr* member_item(struct expr* lvalue, char* name){
 }*/
 
 void checkArithmetic(struct expr* e){
-	if(e->type == constbool_e ||
+	if(e->sym->gramType == gr_conststring ||
 	   e->type == conststring_e ||
 	   e->type == nil_e ||
 	   e->type == newtable_e ||
 	   e->type == programfunc_e ||
 	   e->type == libraryfunc_e ||
-	   e->type == boolexpr_e)
-	   yyerror("Illegal expression ");
+	   e->type == boolexpr_e){
+	   	yyerror("Illegal expression ");
+	   }
 }
