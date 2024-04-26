@@ -1275,7 +1275,7 @@ struct expr* member_item(struct expr* lvalue, char* name){
 }*/
 
 void checkArithmetic(struct expr* e){
-	if(e->sym->gramType == gr_conststring ||
+	if(e->type == constbool_e ||
 	   e->type == conststring_e ||
 	   e->type == nil_e ||
 	   e->type == newtable_e ||

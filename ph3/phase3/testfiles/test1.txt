@@ -1,7 +1,7 @@
-function foo(x,y,z){
-		x = ++y;
-		y = --y;
-		z++;
+function foo(ksiru,gampi,tonis){
+		ksiru = ++gampi;
+		tonis = --tonis;
+		ela++;
 }
 
 foo(a,b,c);
