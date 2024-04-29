@@ -87,6 +87,7 @@ void printQuads(void);
 struct expr* newexpr_constnum(int value);
 struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next);  
 struct expr* makeCall(struct expr* lv,struct exprNode* head);
+struct exprNode* reverseList(struct exprNode* head);
 
 %}
 
@@ -101,10 +102,11 @@ struct expr* makeCall(struct expr* lv,struct exprNode* head);
 	unsigned unsignedVal;
 	int 	intVal;
 	double	realVal;
-	struct	SymbolTableEntry* entryNode;
+	struct SymbolTableEntry* entryNode;
 	struct expr* exprNode;
 	struct exprNode* exprList;
 	struct FunctArgNode* argNode;
+	struct call* callType;
 }
 
 
@@ -131,9 +133,9 @@ struct expr* makeCall(struct expr* lv,struct exprNode* head);
 
 %type<entryNode> stmt
 
-%type<exprNode> call expr term primary const assignexpr lvalue lvalue2 member
+%type<exprNode> call expr term primary const assignexpr lvalue call_lvalue member
 
-%type<exprList> elist normcall methodcall callsuffix
+%type<exprList> elist
 
 %type<idVal> funcname
 
@@ -142,6 +144,8 @@ struct expr* makeCall(struct expr* lv,struct exprNode* head);
 %type<entryNode> funcdef funcprefix
 
 %type<argNode> funcargs
+
+%type<callType> methodcall normcall callsuffix
 
 
 
@@ -322,7 +326,7 @@ lvalue: IDENTIFIER		{
       | member {$$ = $1;}
       ;
 
-lvalue2: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
+call_lvalue: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 								 if(res != NULL) {
 								 	if(res->type != userfunc && res->type != libfunc) yyerror("Function not found");
 									//else if(res->type == userfunc && res->value.funcVal->scope != currScope) yyerror("Not accesible function");
@@ -343,7 +347,7 @@ lvalue2: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 								}else yyerror("Function not found");
 					}
 								
-	   | member
+	   | member {$$ = $1;}
 	   ;
 
 member: lvalue DOT IDENTIFIER {$$ = member_item($1,$3);}
@@ -359,15 +363,42 @@ call: call PARENTHOPEN elist PARENTHCLOSE {
     					   $$ = makeCall($$,$3);
 					   elistFlag = 0;
 					  }
-    | lvalue2 callsuffix {
+    | call_lvalue callsuffix {
     			  $1 = emit_iftableitem($1);
-			 /*TODO if(callsuffix.method){
-			 	get_last($2.elist)->next  = $1;	
-			 }
-			 */
-			  $$ = makeCall($$,$2);
+			  if($2->method){
+			  	
+				struct exprNode* temp = $2->elist;
+			 	
+				while(temp->next != NULL){
+					temp = temp->next; 
+				}
+				temp->next = $1;
+				
+				$1 = emit_iftableitem(member_item($1,$2->name));
+			  } 
+			 
+			  $$ = makeCall($$,$2->elist);
 			  elistFlag = 0;
     			 }
+   /* | lvalue methodcall {$1 = emit_iftableitem($1); 
+    				printf("RAAAAAAAA\n");
+			  	if($2->method){
+			  	
+				struct exprNode* temp = $2->elist;
+			 	
+				while(temp->next != NULL){
+					temp = temp->next; 
+				}
+				temp->next = $1;
+				
+				$1 = emit_iftableitem(member_item($1,$2->name));
+			  } 
+			 
+			  $$ = makeCall($$,$2->elist);
+			  elistFlag = 0;
+
+			  }*/
+    		
     | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE {
     								      	struct expr* func = makeExpression(programfunc_e,$2,NULL,NULL);
 									$$ = makeCall(func,$5);
@@ -375,14 +406,14 @@ call: call PARENTHOPEN elist PARENTHCLOSE {
 								      }
     ;
 
-callsuffix: normcall {$$ = $1;}
-	  | methodcall
+callsuffix: normcall { $$ = $1; }
+	  | methodcall { $$ = $1; }
 	  ;
 
-normcall: PARENTHOPEN elist PARENTHCLOSE { $$ = $2; }
+normcall: PARENTHOPEN elist PARENTHCLOSE {$$ = malloc(sizeof(struct call)); $$->elist = $2; $$->method  = 0; $$->name = NULL; }
 	;
 
-methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE 
+methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE {$$ = malloc(sizeof(struct call)); $$->elist = $4; $$->method  = 1; $$->name = strdup($2); }
 	  ;
 
 elist: expr		 {
@@ -750,8 +781,8 @@ void emit(
 	p->line = line;
 }
 
-FunctArgNode_t* reverseList(FunctArgNode_t* head) {
-     FunctArgNode_t  *prev = NULL, *current = head, *next = NULL;
+struct exprNode* reverseList(struct exprNode* head) {
+     struct exprNode*  *prev = NULL, *current = head, *next = NULL;
         while (current != NULL) {
 	        next = current->next;
 		current->next = prev;
@@ -895,6 +926,7 @@ struct expr* newexpr_constnum(int value){
 	struct expr* newexpr = makeExpression(constnum_e,newentry,NULL,NULL);
 	return newexpr;
 }
+
 
 /*end of phase3*/
 
@@ -1271,7 +1303,7 @@ struct expr* emit_iftableitem(struct expr* e){
 		return e;
 	else {
 		struct expr* result = makeExpression(var_e,newtemp(),e->index,NULL);
-		emit(TABLEGETELEM, e, e->index, result,0,e->sym->value.varVal->line);
+		emit(TABLEGETELEM, e, e->index, result,0,0);
 		return result;
 	}
 }

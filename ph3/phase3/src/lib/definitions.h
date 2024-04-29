@@ -129,3 +129,9 @@ struct exprNode {
 	struct exprNode* next;
 };
 
+struct call {
+	struct expr* elist;
+	unsigned char method;
+	char* name;
+};
+
