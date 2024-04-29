@@ -133,7 +133,7 @@ struct exprNode* reverseList(struct exprNode* head);
 
 %type<entryNode> stmt
 
-%type<exprNode> call expr term primary const assignexpr lvalue call_lvalue member
+%type<exprNode> call expr term primary const assignexpr lvalue call_lvalue member objectdef
 
 %type<exprList> elist
 
@@ -472,10 +472,18 @@ indexed: indexedelem
         ;
 
 
-objectdef: SQBRACKETOPEN objectdef_body SQBRACKETCLOSE;
-objectdef_body: elist
-              | indexed
-			  ;
+objectdef: SQBRACKETOPEN elist SQBRACKETCLOSE {
+	 					struct expr* ti = makeExpression(newtable_e,newtemp(),NULL,NULL); 
+	 					emit(TABLECREATE,ti,NULL,NULL,0,0);
+						for(int i = 0;$2;$2 = $2->next){
+							emit(TABLESETELEM,ti,newexpr_constnum(i++),$2,0,0);
+						}
+						$$ = ti;
+					      }
+	 ; 
+
+objectdef: SQBRACKETOPEN indexed SQBRACKETCLOSE;
+
 
 
 indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE
