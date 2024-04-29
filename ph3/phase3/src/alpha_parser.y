@@ -59,7 +59,6 @@ unsigned scopeSpaceCounter = 1;
 
 struct expr* emit_iftableitem(struct expr* e);
 struct expr* member_item(struct expr* lvalue, char* name);
-struct expr* newexpr(enum expr_en mitso);
 struct expr* newexpr_conststring(char* c);
 SymbolTableEntry_t* newtemp();
 
@@ -128,11 +127,11 @@ struct expr* makeCall(struct expr* lv,struct exprNode* head);
 
 %type<operatorVal> op
 
-%type<entryNode>  member number /*:3*/
+%type<entryNode>   number /*:3*/
 
 %type<entryNode> stmt
 
-%type<exprNode> call expr term primary const assignexpr lvalue lvalue2
+%type<exprNode> call expr term primary const assignexpr lvalue lvalue2 member
 
 %type<exprList> elist normcall methodcall callsuffix
 
@@ -255,21 +254,28 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
     ;
 
 assignexpr: lvalue EQUAL expr {
-								//TODO: if tableelem diale3h 10 slide 23 else
-								$1->sym->gramType = $3->sym->gramType;
-								$1->type = $3->type;
-								emit(ASSIGN,$3, NULL, $1,0, $1->sym->value.varVal->line);
-								$$ = makeExpression(assignexpr_e,$1,NULL,NULL); 
-								if($3->type == conststring_e) printf("YES\n");
-								else printf("NO\n");
-								//$1->sym->gramType = $3->sym->gramType;
-								//$1->type = $3->type;
-								$$->sym = newtemp();
-								emit(ASSIGN, $1, NULL, $$, 0, $1->sym->value.varVal->line);
-							   }
+								if($1->type == tableitem_e){
+									emit(TABLESETELEM,$1,$1->index,$3,0,$1->sym->value.varVal->line);
+									$$ = emit_iftableitem($1);
+									$$->type = assignexpr_e;
+								}else{
+									SymbolTableEntry_t* t = $1->sym;
+									SymbolTableEntry_t* t2 = $3->sym;
+									$1->sym->gramType = $3->sym->gramType;
+									$1->type = $3->type;
+									emit(ASSIGN,$3, NULL, $1,0, $1->sym->value.varVal->line);
+									$$ = makeExpression(assignexpr_e,$1,NULL,NULL); 
+									if($3->type == conststring_e) printf("YES\n");
+									else printf("NO\n");
+									//$1->sym->gramType = $3->sym->gramType;
+									//$1->type = $3->type;
+									$$->sym = newtemp();
+									emit(ASSIGN, $1, NULL, $$, 0, $1->sym->value.varVal->line);
+								}
+			       }
 	  ;
 
-primary: lvalue {printf("%s\n", $1->sym->value.varVal->name);}
+primary: lvalue {$$ = emit_iftableitem($1);}
        | call
        | objectdef
        | PARENTHOPEN funcdef PARENTHCLOSE
@@ -292,6 +298,7 @@ lvalue: IDENTIFIER		{
 									if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);	
 									else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
 									else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
+									else if(res->gramType == gr_integer) $$ = makeExpression(constnum_e,res,NULL,NULL);
 								}
 								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));
 									$$ = makeExpression(var_e,res,NULL,NULL);
@@ -312,7 +319,7 @@ lvalue: IDENTIFIER		{
 						}
 					} else yyerror("existing library function with same name"); }     
       | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == NULL) ? yyerror("Global Variable not found") : ($$ = $2);}
-      | member
+      | member {$$ = $1;}
       ;
 
 lvalue2: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
@@ -339,8 +346,11 @@ lvalue2: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 	   | member
 	   ;
 
-member: lvalue DOT IDENTIFIER
-      | lvalue SQBRACKETOPEN expr SQBRACKETCLOSE
+member: lvalue DOT IDENTIFIER {$$ = member_item($1,$3);}
+      | lvalue SQBRACKETOPEN expr SQBRACKETCLOSE {
+      						  $1 = emit_iftableitem($1);
+      						  $$ = makeExpression(tableitem_e,$1->sym,$3,NULL);
+						 }
       | call DOT IDENTIFIER
       | call SQBRACKETOPEN expr SQBRACKETCLOSE
       ;
@@ -369,7 +379,7 @@ callsuffix: normcall {$$ = $1;}
 	  | methodcall
 	  ;
 
-normcall: PARENTHOPEN elist PARENTHCLOSE { $$ = $2;printf("Elist is %d\n",$2);}
+normcall: PARENTHOPEN elist PARENTHCLOSE { $$ = $2; }
 	;
 
 methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE 
@@ -1259,20 +1269,31 @@ void printScopeLists(){
 struct expr* emit_iftableitem(struct expr* e){
 	if(e->type != tableitem_e)
 		return e;
-	/*else {
-		struct expr* result = newexpr(var_e);
-		result->sym->symbol = newtemp();
-		//emit(TABLEGETELEM, e, e->index, result); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BAM
+	else {
+		struct expr* result = makeExpression(var_e,newtemp(),e->index,NULL);
+		emit(TABLEGETELEM, e, e->index, result,0,e->sym->value.varVal->line);
 		return result;
-	}*/
+	}
 }
-/*
+
 struct expr* member_item(struct expr* lvalue, char* name){
 	lvalue = emit_iftableitem(lvalue);
-	struct expr* item = newexpr(tableitem_e);
-	item->sym = lvalue->sym;
+	struct expr* item = makeExpression(tableitem_e,lvalue->sym,NULL,NULL);
 	item->index = newexpr_conststring(name);
-}*/
+	return item;
+}
+
+struct expr* newexpr_conststring(char* name){
+	SymbolTableEntry_t* newentry = malloc(sizeof(SymbolTableEntry_t));
+	newentry->symbol = malloc(sizeof(struct sym));
+	newentry->symbol->name = strdup(name);
+	newentry->grammarVal.string = strdup(name);
+	newentry->gramType = gr_conststring;
+	struct expr* newexpr = makeExpression(conststring_e,newentry,NULL,NULL);
+	return newexpr;
+}
+
+
 
 void checkArithmetic(struct expr* e){
 	if(e->type == constbool_e ||
