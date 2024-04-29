@@ -36,7 +36,6 @@ void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 void printFuncArgs(FunctArgNode_t *f);
 void printScopeLists();
 int libFuncCheck(char* key);
-
 void allocateScopes(int scope);
 
 /*phase 3*/
@@ -45,17 +44,14 @@ struct quad* quads = (struct quad*)0;
 unsigned total = 0;
 unsigned int currQuad = 0;
 
-
 int tempcounter = 0;
 int scopeoffset = 0;
 int elistFlag = 0;
-
 
 unsigned programVarOffset = 0;
 unsigned functionLocalOffset = 0;
 unsigned formalArgOffset = 0;
 unsigned scopeSpaceCounter = 1;
-
 
 struct expr* emit_iftableitem(struct expr* e);
 struct expr* member_item(struct expr* lvalue, char* name);
@@ -70,7 +66,6 @@ void emit(
 	unsigned label,
 	unsigned line
 	);
-
 
 void checkArithmetic(struct expr* e);
 enum scope_space currscopespace(void);
@@ -206,7 +201,12 @@ op: PLUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
 term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
     | MINUS expr {checkArithmetic($2);
     		  $$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
-		  emit(UMINUS,$2,NULL,$$,0,$2->sym->value.varVal->line);
+		  emit(UMINUS,
+		  $2,
+		  NULL,
+		  $$,
+		  0,
+		  $2->sym->value.varVal->line);
 		 }
     | NOT expr {
     	       	$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
@@ -271,8 +271,6 @@ assignexpr: lvalue EQUAL expr {
 									$$ = makeExpression(assignexpr_e,$1,NULL,NULL); 
 									if($3->type == conststring_e) printf("YES\n");
 									else printf("NO\n");
-									//$1->sym->gramType = $3->sym->gramType;
-									//$1->type = $3->type;
 									$$->sym = newtemp();
 									emit(ASSIGN, $1, NULL, $$, 0, $1->sym->value.varVal->line);
 								}
@@ -281,7 +279,7 @@ assignexpr: lvalue EQUAL expr {
 
 primary: lvalue {$$ = emit_iftableitem($1);}
        | call
-       | objectdef
+       | objectdef  {$$ = makeExpression($1->type,$1->sym,NULL,NULL);} 
        | PARENTHOPEN funcdef PARENTHCLOSE
        | const {$$ = makeExpression($1->type,$1->sym,NULL,NULL); }
        ;
@@ -416,7 +414,7 @@ normcall: PARENTHOPEN elist PARENTHCLOSE {$$ = malloc(sizeof(struct call)); $$->
 methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE {$$ = malloc(sizeof(struct call)); $$->elist = $4; $$->method  = 1; $$->name = strdup($2); }
 	  ;
 
-elist: expr		 {
+elist: expr	 {
 				if(elistFlag == 0){
 					elistFlag = 1;
 					$$ = NULL;
@@ -473,12 +471,22 @@ indexed: indexedelem
 
 
 objectdef: SQBRACKETOPEN elist SQBRACKETCLOSE {
-	 					struct expr* ti = makeExpression(newtable_e,newtemp(),NULL,NULL); 
-	 					emit(TABLECREATE,ti,NULL,NULL,0,0);
-						for(int i = 0;$2;$2 = $2->next){
-							emit(TABLESETELEM,ti,newexpr_constnum(i++),$2,0,0);
-						}
-						$$ = ti;
+								struct expr* ti = makeExpression(newtable_e,newtemp(),NULL,NULL); 
+								emit(TABLECREATE,NULL,NULL,ti,0,0);
+								/*for(int i = 0;$2 != NULL;$2 = $2->next){
+									emit(TABLESETELEM,ti,newexpr_constnum(i++),$2,0,0);
+								}*/
+								
+								struct exprNode* head = $2;
+								int i = 0;
+								while (head != NULL){
+									emit(TABLESETELEM,newexpr_constnum(i++),head->node,ti,0,0);
+
+									head = head->next;
+								}								
+
+
+								$$ = ti;
 					      }
 	 ; 
 
@@ -570,6 +578,8 @@ number: INTEGER {$$ = malloc(sizeof(SymbolTableEntry_t));
                     snprintf($$->symbol->name,length + 1,"%d",$1);
                     $$->gramType = gr_integer;
                     $$->grammarVal.intNum = $1;
+					$$->value.varVal = malloc(sizeof(Variable_t));
+					$$->value.varVal->line = yylineno;
                 }
       | REAL{$$ = malloc(sizeof(SymbolTableEntry_t));
                                 int length = snprintf(NULL,0,"%f",$1);
@@ -577,8 +587,12 @@ number: INTEGER {$$ = malloc(sizeof(SymbolTableEntry_t));
                                  $$->symbol->name = malloc(length + 1);
                                  snprintf($$->symbol->name,length + 1,"%f",$1);
                                  $$->gramType = gr_real;
-                                 $$->grammarVal.realNum = $1;}
+                                 $$->grammarVal.realNum = $1;
+								 $$->value.varVal = malloc(sizeof(Variable_t));
+					             $$->value.varVal->line = yylineno;
+					}
       ;
+
 
 idlist: IDENTIFIER {SymbolTableEntry_t* res = scopeLookUp(currScope,$1);
       		    if(res != NULL){
