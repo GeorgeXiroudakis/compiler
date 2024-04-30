@@ -135,3 +135,10 @@ struct call {
 	char* name;
 };
 
+struct indexed_elem{
+	struct expr* index;
+	struct expr* value;
+	
+	struct indexed_elem* next; 
+};
+

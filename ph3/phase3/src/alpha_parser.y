@@ -46,7 +46,10 @@ unsigned int currQuad = 0;
 
 int tempcounter = 0;
 int scopeoffset = 0;
-int elistFlag = 0;
+
+//sori
+short int elistFlag = 0;
+short int indexedFlag = 0; 
 
 unsigned programVarOffset = 0;
 unsigned functionLocalOffset = 0;
@@ -102,6 +105,7 @@ struct exprNode* reverseList(struct exprNode* head);
 	struct exprNode* exprList;
 	struct FunctArgNode* argNode;
 	struct call* callType;
+	struct indexed_elem* indexedType;
 }
 
 
@@ -141,6 +145,8 @@ struct exprNode* reverseList(struct exprNode* head);
 %type<argNode> funcargs
 
 %type<callType> methodcall normcall callsuffix
+
+%type<indexedType> indexed indexedelem
 
 
 
@@ -465,37 +471,100 @@ elist: expr	 {
      |
      ;
 
-indexed: indexedelem
-        | indexed COMMA indexedelem
+indexed: indexedelem   {
+				if(indexedFlag == 0){
+					indexedFlag = 1;
+					$$ = NULL;
+				}
+
+				if($$ == NULL){
+					$$ = malloc(sizeof(struct indexed_elem));
+					$$->index = $1->index;
+					$$->value = $1->value;
+					$$->next = NULL;
+				}else{
+					struct indexed_elem* newnode = malloc(sizeof(struct indexed_elem));
+					newnode->index = $1->index;
+					newnode->value = $1->value;
+					newnode->next = NULL;
+					struct indexed_elem* temp = $$;
+					
+					while(temp->next != NULL){
+						temp = temp->next;
+					}
+					temp->next = newnode;
+				}			
+				
+			}
+        | indexed COMMA indexedelem {
+        				if(indexedFlag == 0){
+						indexedFlag = 1;
+						$$ = NULL;
+					}
+
+					if($$ == NULL){
+						$$ = malloc(sizeof(struct indexed_elem));
+						$$->index = $3->index;
+						$$->value = $3->value;
+						$$->next = NULL;
+					}else{
+						struct indexed_elem* newnode = malloc(sizeof(struct indexed_elem));
+						newnode->index = $3->index;
+						newnode->value = $3->value;
+						newnode->next = NULL;
+						struct indexed_elem* temp = $$;
+						
+						while(temp->next != NULL){
+							temp = temp->next;
+						}
+						temp->next = newnode;
+					}			
+        			     }
         ;
 
 
 objectdef: SQBRACKETOPEN elist SQBRACKETCLOSE {
-								struct expr* ti = makeExpression(newtable_e,newtemp(),NULL,NULL); 
-								emit(TABLECREATE,NULL,NULL,ti,0,0);
-								/*for(int i = 0;$2 != NULL;$2 = $2->next){
-									emit(TABLESETELEM,ti,newexpr_constnum(i++),$2,0,0);
-								}*/
+								struct expr* t = makeExpression(newtable_e,newtemp(),NULL,NULL); 
+								emit(TABLECREATE,NULL,NULL,t,0,0);
 								
 								struct exprNode* head = $2;
 								int i = 0;
 								while (head != NULL){
-									emit(TABLESETELEM,newexpr_constnum(i++),head->node,ti,0,0);
+									emit(TABLESETELEM,newexpr_constnum(i++),head->node,t,0,0);
 
 									head = head->next;
 								}								
 
 
-								$$ = ti;
+								$$ = t;
 					      }
 	 ; 
 
-objectdef: SQBRACKETOPEN indexed SQBRACKETCLOSE;
+objectdef: SQBRACKETOPEN indexed SQBRACKETCLOSE { 		
+								struct expr* t = makeExpression(newtable_e,newtemp(),NULL,NULL); 
+								emit(TABLECREATE,NULL,NULL,t,0,0); 
+								
+								struct indexed_elem* head = $2;
+								while(head != NULL){
+									emit(TABLESETELEM, head->index, head->value, t, 0, 0);
+									
+									head = head->next;
+								}
+								
+								
+								$$ = t;
+								
+						};
 
 
 
-indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE
-	   ;
+indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE { 
+								$$ = malloc(sizeof(struct indexed_elem));
+								$$->index = $2;
+								$$->value = $4;	
+								
+								
+								};
 
 block: CURBRACKETOPEN {currScope++; allocateScopes(currScope);} stmt_list CURBRACKETCLOSE {hideScope(currScope);currScope--;}  
      ;
