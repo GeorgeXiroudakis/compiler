@@ -92,10 +92,10 @@ struct sym{
 	unsigned	offset;
 };
 
-typedef enum iopcode {
+enum iopcode {
 	ASSIGN, ADD, SUB, MUL, DIV, MOD, UMINUS, OP_AND, OP_OR, OP_NOT, IF_EQ, IF_NOTEQ, IF_LESSEQ, IF_GREATEREQ, IF_LESS, IF_GREATER,
 	CALL, PARAM, RET, GETRETVAL, FUNCSTART, FUNCEND, TABLECREATE, TABLEGETELEM, TABLESETELEM
-}iopcode_t;
+};
 
 enum expr_en {
 	var_e, tableitem_e, 
