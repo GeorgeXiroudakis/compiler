@@ -83,6 +83,7 @@ unsigned nextquadlabel(void);
 void patchlabel(unsigned quadNo,unsigned label);
 void printQuads(void);
 struct expr* newexpr_constnum(int value);
+struct expr* newexpr_constbool(short int value);
 struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next);  
 struct expr* makeCall(struct expr* lv,struct exprNode* head);
 struct exprNode* reverseList(struct exprNode* head);
@@ -190,9 +191,14 @@ stmt: expr SEMICOLON
     ;
 
 expr: assignexpr
-    | expr arithop expr %prec PLUS {if(*$2 == ADD) printf("BOOYAH\n");}
-    | expr compop expr {printf("RAAAA\n");}
-    | expr boolop expr {printf("KSHRU\n");}
+    | expr arithop expr %prec PLUS {$$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);emit(*$2,$1,$3,$$,0,0);}
+    | expr compop expr %prec GREATERTHAN {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
+    					  emit(*$2,$1,$3,NULL,nextquadlabel() + 3,0);
+					  emit(ASSIGN,newexpr_constbool(0),NULL,$$,0,0);
+					  emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
+					  emit(ASSIGN,newexpr_constbool(1),NULL,$$,0,0);
+					 }
+    | expr boolop expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);emit(*$2,$1,$3,$$,0,0);}
     | term { $$ = makeExpression($1->type,$1->sym,NULL,NULL); }
     ;
 
@@ -980,6 +986,8 @@ void printQuads(void){
 					fprintf(file,"%-20s ","tablegetelem");break;
 				case TABLESETELEM:
 					fprintf(file,"%-20s ","tablesetelem");break;
+				case JUMP:
+					fprintf(file,"%-20s ","jump");break;
 				default:
 					fprintf(file,"%-20s ","unknownopcode");break;
 			}
@@ -1037,6 +1045,24 @@ unsigned int istempname(char* s){
 unsigned int istempexpr(struct expr* e){
 	return e->sym->symbol->name && istempname(e->sym->symbol->name);
 }
+
+
+struct expr* newexpr_constbool(short int value){
+	SymbolTableEntry_t* newentry = malloc(sizeof(SymbolTableEntry_t));
+	newentry->symbol = malloc(sizeof(struct sym));
+	if(value == 0){
+		newentry->symbol->name = "\'false\'";
+	}else{
+		newentry->symbol->name = "\'true\'";
+	}
+	newentry->grammarVal.boolean = value;
+	newentry->gramType = gr_boolean;
+	struct expr* newexpr = makeExpression(constbool_e,newentry,NULL,NULL);
+	return newexpr;
+}
+
+
+
 
 
 
