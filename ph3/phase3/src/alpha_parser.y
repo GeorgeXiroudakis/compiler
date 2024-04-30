@@ -26,12 +26,12 @@ ScopeArray_t **ScopeLists = NULL;
 SymbolTableEntry_t* makeLibEntry(char *name);
 SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type);
 SymbolTableEntry_t* makeFuncEntry(char *name,enum SymbolType type);
-void insertToScopeList(ScopeArray_t *head, scopeListNode_t *newNode);
+void insertToSceList(ScopeArray_t *head, scopeListNode_t *newNode);
 void insertToSymTable(int scope, const char *name, SymbolTableEntry_t *newEntry);
 FunctArgNode_t* makeFuncArgList(FunctArgNode_t* f,int scope);
 SymbolTableEntry_t *upStreamLookUp(int scope,const char *key);
 SymbolTableEntry_t *scopeLookUp(int scope,const char *key);
-void hideScope(int scope);
+void hideSce(int scope);
 void printEntry(const char *pcKey, void *pvValue, void *pvExtra);
 void printFuncArgs(FunctArgNode_t *f);
 void printScopeLists();
@@ -86,33 +86,37 @@ struct expr* newexpr_constnum(int value);
 struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct expr* index, struct expr* next);  
 struct expr* makeCall(struct expr* lv,struct exprNode* head);
 struct exprNode* reverseList(struct exprNode* head);
+unsigned int istempname(char* s);
+unsigned int istempexpr(struct expr* e);
 
 %}
 
 %start program
 
 %union{ 
+	enum iopcode* op;
 	char* 	keywordVal;
 	char* 	punctuationVal;
-    	char*	stringVal;
-    	char*	idVal;
-    	char* 	operatorVal;
+    	char*	stringVal;	
+	char*	idVal;
+	char* 	operatorVal;
 	unsigned unsignedVal;
 	int 	intVal;
 	double	realVal;
 	struct SymbolTableEntry* entryNode;
 	struct expr* exprNode;
-	struct exprNode* exprList;
+ 	struct exprNode* exprList;
 	struct FunctArgNode* argNode;
-	struct call* callType;
+ 	struct call* callType;
 	struct indexed_elem* indexedType;
+	
 }
 
 
 
 %token<keywordVal> IF ELSE WHILE FOR FUNCTION RETURN BREAK CONTINUE AND NOT OR LOCAL TRUE FALSE NIL
 
-%token<operatorVal> EQUAL PLUS MINUS ASTERISK DIVISION MODULO COMPARISON UNEQUAL PLUSPLUS MINUSMINUS GREATERTHAN LESSTHAN GREATEREQUAL LESSEQUAL
+%token<operatorVal> PLUSPLUS MINUSMINUS EQUAL PLUS MINUS ASTERISK DIVISION MODULO COMPARISON UNEQUAL GREATERTHAN LESSTHAN GREATEREQUAL LESSEQUAL
 
 %token<punctuationVal> SQBRACKETOPEN SQBRACKETCLOSE CURBRACKETOPEN CURBRACKETCLOSE PARENTHOPEN PARENTHCLOSE SEMICOLON COMMA COLON DOT DOUBLEDOT DOUBLECOLON
 
@@ -126,7 +130,7 @@ struct exprNode* reverseList(struct exprNode* head);
 
 
 
-%type<operatorVal> op
+%type<op> arithop compop boolop
 
 %type<entryNode>   number /*:3*/
 
@@ -147,6 +151,7 @@ struct exprNode* reverseList(struct exprNode* head);
 %type<callType> methodcall normcall callsuffix
 
 %type<indexedType> indexed indexedelem
+
 
 
 
@@ -185,24 +190,31 @@ stmt: expr SEMICOLON
     ;
 
 expr: assignexpr
-    | expr op expr %prec PLUS {printf("%d %s %d\n",$1->sym->grammarVal.boolean,$2,$3->sym->grammarVal.boolean);}
+    | expr arithop expr %prec PLUS {if(*$2 == ADD) printf("BOOYAH\n");}
+    | expr compop expr {printf("RAAAA\n");}
+    | expr boolop expr {printf("KSHRU\n");}
     | term { $$ = makeExpression($1->type,$1->sym,NULL,NULL); }
     ;
 
-op: PLUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | MINUS {$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | ASTERISK{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | DIVISION{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | MODULO{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | GREATERTHAN{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | GREATEREQUAL{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | LESSTHAN{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | LESSEQUAL{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | COMPARISON{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | UNEQUAL{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | AND{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  | OR{$$ = malloc(3 * sizeof(char)); $$ = $1;}
-  ;
+compop:   GREATERTHAN{$$ = malloc(sizeof(enum iopcode)); *$$ = IF_GREATER;}
+  	| GREATEREQUAL{$$ = malloc(sizeof(enum iopcode)); *$$ = IF_GREATEREQ;}
+  	| LESSTHAN{$$ = malloc(sizeof(enum iopcode)); *$$ = IF_LESS;}
+  	| LESSEQUAL{$$ = malloc(sizeof(enum iopcode)); *$$ = IF_LESSEQ;}
+	| COMPARISON{$$ = malloc(sizeof(enum iopcode)); *$$ = IF_EQ;}
+	| UNEQUAL{$$ = malloc(sizeof(enum iopcode)); *$$ = IF_NOTEQ;}
+ 	;
+
+arithop: PLUS {$$ = malloc(sizeof(enum iopcode)); *$$ = ADD;}
+  	| MINUS {$$ = malloc(sizeof(enum iopcode)); *$$ = SUB;}
+  	| ASTERISK{$$ = malloc(sizeof(enum iopcode)); *$$ = MUL;}
+  	| DIVISION{$$ = malloc(sizeof(enum iopcode)); *$$ = DIV;}
+  	| MODULO{$$ = malloc(sizeof(enum iopcode)); *$$ = MOD;}
+        ;
+
+boolop:   AND{$$ = malloc(sizeof(enum iopcode)); *$$ = OP_AND;}
+	| OR{$$ = malloc(sizeof(enum iopcode)); *$$ = OP_OR;}
+        ;
+
 
 term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
     | MINUS expr {checkArithmetic($2);
@@ -1017,6 +1029,15 @@ struct expr* newexpr_constnum(int value){
 	struct expr* newexpr = makeExpression(constnum_e,newentry,NULL,NULL);
 	return newexpr;
 }
+
+unsigned int istempname(char* s){
+	return *s == '_';
+}
+
+unsigned int istempexpr(struct expr* e){
+	return e->sym->symbol->name && istempname(e->sym->symbol->name);
+}
+
 
 
 /*end of phase3*/
