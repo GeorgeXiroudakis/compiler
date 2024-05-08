@@ -141,3 +141,8 @@ struct indexed_elem{
 	
 	struct indexed_elem* next; 
 };
+
+struct for_labels{
+	unsigned test;
+	unsigned enter;
+};

@@ -110,6 +110,7 @@ unsigned int istempexpr(struct expr* e);
 	struct FunctArgNode* argNode;
  	struct call* callType;
 	struct indexed_elem* indexedType;
+	struct for_labels* forLabelsType;
 	
 }
 
@@ -143,7 +144,7 @@ unsigned int istempexpr(struct expr* e);
 
 %type<idVal> funcname
 
-%type<unsignedVal> funcbody ifprefix elseprefix
+%type<unsignedVal> funcbody ifprefix elseprefix whilestart whilecond unfinjmp forretlabel
 
 %type<entryNode> funcdef funcprefix
 
@@ -152,6 +153,8 @@ unsigned int istempexpr(struct expr* e);
 %type<callType> methodcall normcall callsuffix
 
 %type<indexedType> indexed indexedelem
+
+%type<forLabelsType> forprefix forpostfix for
 
 
 
@@ -180,8 +183,8 @@ program: stmt
 
 stmt: expr SEMICOLON 
     | if 
-    | whilestmt
-    | forstmt
+    | while
+    | for
     | returnstmt
     | BREAK SEMICOLON
     | CONTINUE SEMICOLON
@@ -283,7 +286,7 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 
 assignexpr: lvalue EQUAL expr {
 								if($1->type == tableitem_e){
-									emit(TABLESETELEM,$1,$1->index,$3,0,$1->sym->value.varVal->line);
+									emit(TABLESETELEM,$1,$1->index,$3,0,0);
 									$$ = emit_iftableitem($1);
 									$$->type = assignexpr_e;
 								}else{
@@ -315,9 +318,10 @@ lvalue: IDENTIFIER		{
 									if(res->type == libfunc )yyerror("Redifinition of token");
 									else if(res->type == userfunc)yyerror("function used as an lvalue");
 									else if(res->type != global){
-										if(res->unionType == unionVar){
+										if(res->unionType == unionVar){ 
 											if(res->value.varVal->scope != currScope){
-												yyerror("Not accesible variable");
+												yyerror("Not accesible variable");//TODO: Check for loops
+
 											}
 										}
 									}
@@ -720,11 +724,55 @@ if: ifprefix stmt {
 
 
 
-whilestmt: WHILE PARENTHOPEN {currScope++; allocateScopes(currScope);} expr PARENTHCLOSE {currScope--;} stmt
-	 ;
+/*whilestmt: WHILE PARENTHOPEN {currScope++; allocateScopes(currScope);} expr PARENTHCLOSE {currScope--;} stmt
+;*/
+	
+whilestart: WHILE {
+		    $$ = nextquadlabel();  
+		  }
 
-forstmt: FOR PARENTHOPEN {currScope++; allocateScopes(currScope); } elist SEMICOLON expr SEMICOLON elist PARENTHCLOSE {currScope--;} stmt
-       ;
+whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); }expr PARENTHCLOSE  {
+	 				   currScope--;
+					   emit(IF_EQ,$3,newexpr_constbool(1),NULL,nextquadlabel() + 2,0);
+					   $$ = nextquadlabel();
+					   emit(JUMP,NULL,NULL,NULL,0,0);
+	 				 }
+
+while: whilestart whilecond stmt {
+     					emit(JUMP,NULL,NULL,NULL,$1,0);
+					patchlabel($2,nextquadlabel());
+					//patchlist($3.breaklist,nextquadlabel()); TODO:  Teleutaia slides
+					//patchlist($3.contlist,$1);
+
+       				      }
+
+unfinjmp:{ $$ = nextquadlabel(); emit(JUMP,NULL,NULL,NULL,0,0); }
+
+forretlabel: { $$ = nextquadlabel(); }
+
+
+forprefix: FOR PARENTHOPEN {currScope++; allocateScopes(currScope); } elist {elistFlag = 0;} SEMICOLON forretlabel expr SEMICOLON {
+	 							       $$ = malloc(sizeof(struct for_labels));
+	 							       $$->test = $7;
+								       $$->enter = nextquadlabel();
+								       emit(IF_EQ,$8,newexpr_constbool(1),NULL,0,0);
+								      }
+forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} unfinjmp stmt unfinjmp {
+   								    	   patchlabel($1->enter,$6 + 1);
+								    	   patchlabel($2,nextquadlabel());
+								    	   patchlabel($6,$1->test);
+								    	   patchlabel($8,$2 + 1);
+
+								    	   //patchlist($6.breaklist,nextquadlabel()); TODO: Teleutaia slides
+								    	   //patchlist($6.contlist,$2 + 1);
+   								  	 }
+
+for: forpostfix 
+
+
+/*forstmt: FOR PARENTHOPEN {currscope++; allocatescopes(currscope); } elist SEMICOLON expr SEMICOLON elist PARENTHCLOSE {currScope--;} stmt  ;*/
+
+
 
 returnstmt: RETURN SEMICOLON
 	  | RETURN expr SEMICOLON
