@@ -143,7 +143,7 @@ unsigned int istempexpr(struct expr* e);
 
 %type<idVal> funcname
 
-%type<unsignedVal> funcbody
+%type<unsignedVal> funcbody ifprefix elseprefix
 
 %type<entryNode> funcdef funcprefix
 
@@ -179,7 +179,7 @@ program: stmt
        ;
 
 stmt: expr SEMICOLON 
-    | ifstmt 
+    | if 
     | whilestmt
     | forstmt
     | returnstmt
@@ -694,9 +694,31 @@ idlist: IDENTIFIER {SymbolTableEntry_t* res = scopeLookUp(currScope,$1);
       |
       ;
 
-ifstmt: IF PARENTHOPEN expr PARENTHCLOSE stmt
-      | IF PARENTHOPEN expr PARENTHCLOSE stmt ELSE stmt
-      ;
+ifprefix: IF PARENTHOPEN expr PARENTHCLOSE{
+												emit(IF_EQ, $3, newexpr_constbool(1), NULL, nextquadlabel() + 2, 0);
+
+												$$ = nextquadlabel();
+
+												emit(JUMP, NULL, NULL, NULL, 0, 0);
+											}
+elseprefix: ELSE{
+						$$ = nextquadlabel();
+						emit(JUMP, NULL, NULL, NULL, 0, 0);
+				}
+
+
+if: ifprefix stmt {
+						patchlabel($1, nextquadlabel());
+					}
+
+	| ifprefix stmt elseprefix stmt{
+										patchlabel($1, $3+1);
+										patchlabel($3, nextquadlabel());
+																
+									}
+	;
+
+
 
 whilestmt: WHILE PARENTHOPEN {currScope++; allocateScopes(currScope);} expr PARENTHCLOSE {currScope--;} stmt
 	 ;

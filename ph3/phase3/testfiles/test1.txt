@@ -1,7 +1,5 @@
-function foo(ksiru,gampi,tonis){
-		ksiru = ++gampi;
-		tonis = --tonis;
-		ela++;
+if(x != 2){
+	x = 2;
 }
 
-foo(a,b,c);
+y = 8;
