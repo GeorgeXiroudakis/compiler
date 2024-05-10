@@ -109,9 +109,6 @@ struct expr {
 	enum expr_en type;
 	SymbolTableEntry_t* sym;
 	struct expr* index;
-	/*double numConst;
-	char* strConst;
-	unsigned char boolConst;*/
 	struct expr* next;
 };
 
@@ -145,4 +142,10 @@ struct indexed_elem{
 struct for_labels{
 	unsigned test;
 	unsigned enter;
+};
+
+
+struct lc_stack_t{
+	unsigned 	counter;
+	struct		lc_stack_t* next;
 };

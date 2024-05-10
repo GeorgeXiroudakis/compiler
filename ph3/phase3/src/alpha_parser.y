@@ -56,6 +56,11 @@ unsigned functionLocalOffset = 0;
 unsigned formalArgOffset = 0;
 unsigned scopeSpaceCounter = 1;
 
+struct lc_stack_t* lcs_top = 0;
+struct lc_stack_t* lcs_bottom = 0;
+
+#define loopcounter (lcs_top->counter)
+
 struct expr* emit_iftableitem(struct expr* e);
 struct expr* member_item(struct expr* lvalue, char* name);
 struct expr* newexpr_conststring(char* c);
@@ -89,6 +94,8 @@ struct expr* makeCall(struct expr* lv,struct exprNode* head);
 struct exprNode* reverseList(struct exprNode* head);
 unsigned int istempname(char* s);
 unsigned int istempexpr(struct expr* e);
+void push_loopcounter(void);
+void pop_loopcounter(void);
 
 %}
 
@@ -136,9 +143,7 @@ unsigned int istempexpr(struct expr* e);
 
 %type<entryNode>   number /*:3*/
 
-%type<entryNode> stmt
-
-%type<exprNode> call expr term primary const assignexpr lvalue call_lvalue member objectdef
+%type<exprNode> call expr term primary const assignexpr lvalue call_lvalue member objectdef stmt loopstmt
 
 %type<exprList> elist
 
@@ -240,46 +245,62 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 		emit(OP_NOT,$2,NULL,$$,0,$2->sym->value.varVal->line);
 	       }
     | PLUSPLUS lvalue {checkArithmetic($2);
-    		       //DIALEKSH 10 DIAFANEIA 34?
-		       //TODO:if table do stuff else 
-			emit(ADD,$2,newexpr_constnum(1),$2,0,$2->sym->value.varVal->line);
-			$$ = makeExpression(arithexpr_e,$2,NULL,NULL);
-			$$->sym = newtemp();
-			emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);
+		       	if($2->type == tableitem_e){
+				$$ = emit_iftableitem($2);
+				emit(ADD,$$,newexpr_constnum(1),$$,0,0);
+				emit(TABLESETELEM,$2,$2->index,$$,0,0);
+			}else{
+				emit(ADD,$2,newexpr_constnum(1),$2,0,$2->sym->value.varVal->line);
+				$$ = makeExpression(arithexpr_e,$2,NULL,NULL);
+				$$->sym = newtemp();
+				emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);
+			}
 		      }
     | lvalue PLUSPLUS {
     			 checkArithmetic($1);
 			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
 			 $$->sym = newtemp();
-    		         //DIALEKSH 10 DIAFANEIA 34?
-		         //TODO:if table do stuff else 
-			 emit(ASSIGN,$1,NULL,$$,0,$1->sym->value.varVal->line);
-			 emit(ADD,$1,newexpr_constnum(1),$1,0,$1->sym->value.varVal->line);
+
+			 if($1->type == tableitem_e){
+				struct expr* val = emit_iftableitem($1);
+				emit(ASSIGN,val,NULL,$$,0,0);
+				emit(ADD,val,newexpr_constnum(1),val,0,0);
+				emit(TABLESETELEM,$1,$1->index,val,0,0);
+
+			 }else{
+				emit(ASSIGN,$1,NULL,$$,0,$1->sym->value.varVal->line);
+			 	emit(ADD,$1,newexpr_constnum(1),$1,0,$1->sym->value.varVal->line);
+			}
     			
     		      }
     | MINUSMINUS lvalue { 
-    			 checkArithmetic($2); 
-			 if($2->type == conststring_e) printf("YES\n");
-			 //else printf("NO\n");
-    		         //dialeksh 10 diafaneia 34?
-		         //todo:if table do stuff else 	
-			 emit(ADD,
-			 $2,
-			 newexpr_constnum(-1)
-			 ,$2
-			 ,0
-			 ,/*$2->sym->value.varVal->line*/0);
-			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
-			 $$->sym = newtemp();
-			 emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);}
+    			  checkArithmetic($2); 
+			 
+			  if($2->type == tableitem_e){
+				 $$ = emit_iftableitem($2);
+				emit(SUB,$$,newexpr_constnum(1),$$,0,0);
+				emit(TABLESETELEM,$2,$2->index,$$,0,0);
+			  }else{
+				 emit(SUB,$2,newexpr_constnum(1),$2,0,0);
+				 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
+				 $$->sym = newtemp();
+				 emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);
+			 }
+			}
     | lvalue MINUSMINUS {
     			 checkArithmetic($1);
 			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
 			 $$->sym = newtemp();
-    		         //DIALEKSH 10 DIAFANEIA 34?
-		         //TODO:if table do stuff else 
-			 emit(ASSIGN,$1,NULL,$$,0,$1->sym->value.varVal->line);
-			 emit(ADD,$1,newexpr_constnum(-1),$1,0,$1->sym->value.varVal->line);
+			
+			 	if($1->type == tableitem_e){
+					struct expr* val = emit_iftableitem($1);
+					emit(ASSIGN,val,NULL,$$,0,0);
+					emit(SUB,val,newexpr_constnum(1),val,0,0);
+					emit(TABLESETELEM,$1,$1->index,val,0,0);
+				}else{
+			 		emit(ASSIGN,$1,NULL,$$,0,$1->sym->value.varVal->line);
+			 		emit(SUB,$1,newexpr_constnum(1),$1,0,$1->sym->value.varVal->line);
+				}
 			}
     | primary {$$ = makeExpression($1->type,$1->sym,NULL,NULL);}
     ;
@@ -345,7 +366,7 @@ lvalue: IDENTIFIER		{
 						SymbolTableEntry_t* res = scopeLookUp(currScope, $2);
 						if(res == NULL){
 							res = makeVariableEntry($2,local);
-							$$ = res;
+							$$ = makeExpression(var_e,res,NULL,NULL);
 						}
 					} else yyerror("existing library function with same name"); }     
       | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == NULL) ? yyerror("Global Variable not found") : ($$ = $2);}
@@ -601,6 +622,9 @@ stmt_list: program
 		 ;
 */
 
+funcblockstart:	{push_loopcounter();}
+
+funcblockend:	{pop_loopcounter();}
 
 funcname: IDENTIFIER	    {	
 				if(!libFuncCheck($1)) yyerror("existing library function with same name"); 
@@ -620,7 +644,7 @@ funcprefix: FUNCTION funcname	{	SymbolTableEntry_t* newFunc = makeFuncEntry($2, 
 	  				$$ = newFunc;
 	  				struct expr* newExpr = makeExpression(programfunc_e, newFunc, NULL, NULL);
 					$$->value.funcVal->qaddress = nextquadlabel();
-					emit(FUNCSTART, NULL, NULL, newExpr, 0, newFunc->value.funcVal->line);//TODO: ti einai to line
+					emit(FUNCSTART, NULL, NULL, newExpr, 0, newFunc->value.funcVal->line);
 					//push ???? TODO
 					enterscopespace();
 					resetformalargsoffset();
@@ -634,8 +658,8 @@ funcargs: PARENTHOPEN{currScope++; allocateScopes(currScope);} idlist {currScope
 funcbody: block {$$ = currscopeoffset(); exitscopespace();}
 	;
 
-funcdef: funcprefix funcargs funcbody { exitscopespace();
-       					 $$->value.funcVal->totallocals = $3;
+funcdef: funcprefix funcargs funcblockstart funcbody funcblockend { exitscopespace();
+       					 $$->value.funcVal->totallocals = $4;
 					//TODO: int offset = popandtop
 					//restorecurroffset(offset);
 					$1->value.funcVal->arglist = $2;
@@ -724,9 +748,12 @@ if: ifprefix stmt {
 
 
 
-/*whilestmt: WHILE PARENTHOPEN {currScope++; allocateScopes(currScope);} expr PARENTHCLOSE {currScope--;} stmt
-;*/
-	
+loopstart:	{++loopcounter;}
+
+loopend:	{--loopcounter;}
+
+loopstmt: loopstart stmt loopend	{$$ = $2;}
+
 whilestart: WHILE {
 		    $$ = nextquadlabel();  
 		  }
@@ -738,7 +765,7 @@ whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); }expr PARENTHCLO
 					   emit(JUMP,NULL,NULL,NULL,0,0);
 	 				 }
 
-while: whilestart whilecond stmt {
+while: whilestart whilecond loopstmt {
      					emit(JUMP,NULL,NULL,NULL,$1,0);
 					patchlabel($2,nextquadlabel());
 					//patchlist($3.breaklist,nextquadlabel()); TODO:  Teleutaia slides
@@ -757,7 +784,7 @@ forprefix: FOR PARENTHOPEN {currScope++; allocateScopes(currScope); } elist {eli
 								       $$->enter = nextquadlabel();
 								       emit(IF_EQ,$8,newexpr_constbool(1),NULL,0,0);
 								      }
-forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} unfinjmp stmt unfinjmp {
+forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} unfinjmp loopstmt unfinjmp {
    								    	   patchlabel($1->enter,$6 + 1);
 								    	   patchlabel($2,nextquadlabel());
 								    	   patchlabel($6,$1->test);
@@ -807,23 +834,8 @@ int main(int argc, char **argv) {
     	ScopeLists[currScope]->head = NULL;
     	ScopeLists[currScope]->tail = NULL;
     	
-    	/*[currScope+1] = malloc(sizeof(scopeListNode_t));
-    	ScopeLists[currScope+1]->head = NULL;
-    	ScopeLists[currScope+1]->tail = NULL;*/
 
-    	makeLibEntry("print");
-    	makeLibEntry("input");
-    	makeLibEntry("objectmemberkeys");
-    	makeLibEntry("objecttotalmembers");
-    	makeLibEntry("objectcopy");
-    	makeLibEntry("totalarguments");
-    	makeLibEntry("argument");
-    	makeLibEntry("typeof");
-    	makeLibEntry("strtonum");
-    	makeLibEntry("sqrt");
-    	makeLibEntry("cos");
-    	makeLibEntry("sin");
-    	
+    	    	
 	if(argc > 2){
 		fprintf(stderr, RED "Wrong call of alpha_parser\ncall with one optional command line argument (the file to analyze)\n" RESET);
 		exit(EXIT_FAILURE);
@@ -838,14 +850,27 @@ int main(int argc, char **argv) {
 		yyin = inputFile;
 	}else
 		yyin = stdin;
-   
+	
 
-    	yyparse();
-    	
+	makeLibEntry("print");
+    	makeLibEntry("input");
+    	makeLibEntry("objectmemberkeys");
+    	makeLibEntry("objecttotalmembers");
+    	makeLibEntry("objectcopy");
+    	makeLibEntry("totalarguments");
+    	makeLibEntry("argument");
+    	makeLibEntry("typeof");
+    	makeLibEntry("strtonum");
+    	makeLibEntry("sqrt");
+    	makeLibEntry("cos");
+    	makeLibEntry("sin");
+
+	push_loopcounter();
+
+	yyparse();
 
 	printScopeLists();
 	printQuads();
-	//SymTable_map(symbolTable,printEntry,NULL);
 
     	return 0;
 }
@@ -980,12 +1005,12 @@ struct expr* makeCall(struct expr* lv,struct exprNode* head){
 	reversed = reverseList(head);
 	while(reversed != NULL){
 		//struct expr* temp = makeExpression(var_e,reversed->arg,NULL,NULL);
-		emit(PARAM,reversed->node,NULL,NULL,0,func->sym->value.funcVal->line);
+		emit(PARAM,reversed->node,NULL,NULL,0,0);
 		reversed = reversed->next;
 	}
-	emit(CALL,func,NULL,NULL,0,func->sym->value.funcVal->line);
+	emit(CALL,func,NULL,NULL,0,0);
 	struct expr* result = makeExpression(var_e,newtemp(),NULL,NULL);
-	emit(GETRETVAL,NULL,NULL,result,0,func->sym->value.funcVal->line);
+	emit(GETRETVAL,NULL,NULL,result,0,0);
 	return result;
 }
 
@@ -1132,7 +1157,43 @@ struct expr* newexpr_constbool(short int value){
 }
 
 
+void push_loopcounter(void){
+	struct lc_stack_t* new = malloc(sizeof(struct lc_stack_t));
+	new->counter = 0;
+	new->next = NULL;
+	if(lcs_top == 0){
+		lcs_top = new;
+		lcs_bottom = new;
+	}else{
+		lcs_top->next = new;
+		lcs_top = new;
+	}
+}
 
+void pop_loopcounter(void){
+	if(lcs_top == 0){
+		return;
+	}
+
+	if(lcs_top == lcs_bottom){
+		//free(lcs_top);
+		lcs_top = 0;
+		lcs_bottom = 0;
+		return;
+	}
+	
+	struct lc_stack_t* temp = lcs_bottom;
+	struct lc_stack_t* prev = NULL;
+	
+	while(temp->next != NULL){
+		prev = temp;
+		temp = temp->next;
+	}
+	
+	lcs_top = prev;
+	//free(temp);
+	return;
+}
 
 
 

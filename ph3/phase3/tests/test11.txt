@@ -4,7 +4,6 @@ print(typeof(x));
 
 function g(x,y) { 
 	print(x+y); 
-	local print = y; 
 	::print(print); 
 	
 	function h() { 

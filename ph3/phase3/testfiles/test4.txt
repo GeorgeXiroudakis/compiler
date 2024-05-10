@@ -1,7 +1,7 @@
 x = 5;
 y = 10;
 while(x < y){
-	z = x;
+	local z = x;
 	for(i = z; i < y; i++){
 		if(z > 5){
 			z++;
