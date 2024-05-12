@@ -149,3 +149,7 @@ struct lc_stack_t{
 	unsigned 	counter;
 	struct		lc_stack_t* next;
 };
+
+struct stmt_t {
+	int breakList,contList;
+};

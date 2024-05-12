@@ -96,6 +96,10 @@ unsigned int istempname(char* s);
 unsigned int istempexpr(struct expr* e);
 void push_loopcounter(void);
 void pop_loopcounter(void);
+void make_stmt(struct stmt_t* s);
+int newlist(int  i);
+int mergelist(int l1,int l2);
+void patchlist(int list,unsigned label);
 
 %}
 
@@ -118,7 +122,7 @@ void pop_loopcounter(void);
  	struct call* callType;
 	struct indexed_elem* indexedType;
 	struct for_labels* forLabelsType;
-	
+	struct stmt_t* stmtType;
 }
 
 
@@ -143,7 +147,7 @@ void pop_loopcounter(void);
 
 %type<entryNode>   number /*:3*/
 
-%type<exprNode> call expr term primary const assignexpr lvalue call_lvalue member objectdef stmt loopstmt
+%type<exprNode> call expr term primary const assignexpr lvalue call_lvalue member objectdef
 
 %type<exprList> elist
 
@@ -160,6 +164,8 @@ void pop_loopcounter(void);
 %type<indexedType> indexed indexedelem
 
 %type<forLabelsType> forprefix forpostfix for
+
+%type<stmtType> stmt loopstmt break continue stmts
 
 
 
@@ -191,12 +197,39 @@ stmt: expr SEMICOLON
     | while
     | for
     | returnstmt
-    | BREAK SEMICOLON
-    | CONTINUE SEMICOLON
+    | break
+    | continue
     | block
     | funcdef
     | SEMICOLON
     ;
+
+break: BREAK SEMICOLON {
+			struct stmt_t* temp;
+			make_stmt($$);
+			temp = $$;
+			$$->breakList = newlist(nextquadlabel());
+			temp = $$;
+			emit(JUMP,NULL,NULL,NULL,0,0);
+		       }
+
+continue: CONTINUE SEMICOLON {
+		      make_stmt($$);
+			      $$->contList = newlist(nextquadlabel());
+			      emit(JUMP,NULL,NULL,NULL,0,0);
+			     }
+
+stmts: stmt { $$ = $1; }
+     | stmts stmt {
+                   struct stmt_t* temp;
+		   $$->breakList = mergelist($1->breakList,$$->breakList);
+		   $$->contList = mergelist($1->contList,$$->contList);
+		   temp = $$;
+		  }
+     ;
+
+
+
 
 expr: assignexpr
     | expr arithop expr %prec PLUS {$$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);emit(*$2,$1,$3,$$,0,0);}
@@ -768,8 +801,8 @@ whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); }expr PARENTHCLO
 while: whilestart whilecond loopstmt {
      					emit(JUMP,NULL,NULL,NULL,$1,0);
 					patchlabel($2,nextquadlabel());
-					//patchlist($3.breaklist,nextquadlabel()); TODO:  Teleutaia slides
-					//patchlist($3.contlist,$1);
+					patchlist($3->breakList,nextquadlabel());
+					patchlist($3->contList,$1);
 
        				      }
 
@@ -790,8 +823,8 @@ forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} 
 								    	   patchlabel($6,$1->test);
 								    	   patchlabel($8,$2 + 1);
 
-								    	   //patchlist($6.breaklist,nextquadlabel()); TODO: Teleutaia slides
-								    	   //patchlist($6.contlist,$2 + 1);
+								    	   patchlist($7->breakList,nextquadlabel());
+								    	   patchlist($7->contList,$2 + 1);
    								  	 }
 
 for: forpostfix 
@@ -1193,6 +1226,39 @@ void pop_loopcounter(void){
 	lcs_top = prev;
 	//free(temp);
 	return;
+}
+
+void make_stmt(struct stmt_t* s){
+	s->breakList = s->contList = 0;
+}
+
+int newlist(int i){
+	quads[i].label = 0;
+	return i;
+}
+
+int mergelist(int l1,int l2){
+	if(!l1){
+		return l2;
+	}else if(!l2){
+		return l1;
+	}else{
+		int i = l1;
+		while(quads[i].label){
+			i = quads[i].label;
+		}
+		quads[i].label = l2;
+		return l1;
+	}
+}
+
+void patchlist(int list,unsigned label){
+	while(list){
+		int next = quads[list].label;
+		quads[list].label = label;
+		list = next;
+	}
+
 }
 
 

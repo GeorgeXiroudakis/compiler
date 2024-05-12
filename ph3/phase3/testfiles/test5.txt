@@ -1,0 +1,20 @@
+function f(x){x = 2;}
+
+
+while(a){
+
+	a = f(a);
+
+
+	if(a){
+		break;
+	}else{
+		continue;
+	}
+
+	continue;
+	break;
+}
+
+
+	

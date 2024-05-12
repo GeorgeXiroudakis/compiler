@@ -25,7 +25,7 @@ WHILE			while
 FOR				for
 FUNCTION		function
 RETURN			return
-BREAK			breakG
+BREAK			break
 CONTINUE		continue
 AND				and
 NOT				not
