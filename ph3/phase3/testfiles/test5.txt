@@ -5,16 +5,9 @@ while(a){
 
 	a = f(a);
 
-
-	if(a){
-		break;
-	}else{
-		continue;
-	}
-
 	continue;
 	break;
 }
 
-
-	
+kshru = 1;
+gampi = 2;

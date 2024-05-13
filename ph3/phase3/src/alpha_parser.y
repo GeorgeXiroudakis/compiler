@@ -100,6 +100,7 @@ void make_stmt(struct stmt_t* s);
 int newlist(int  i);
 int mergelist(int l1,int l2);
 void patchlist(int list,unsigned label);
+void printStack(int list);
 
 %}
 
@@ -219,15 +220,20 @@ continue: CONTINUE SEMICOLON {
 			      emit(JUMP,NULL,NULL,NULL,0,0);
 			     }
 
-stmts: stmt { $$ = $1; }
-     | stmts stmt {
-                   struct stmt_t* temp;
-		   $$->breakList = mergelist($1->breakList,$$->breakList);
-		   $$->contList = mergelist($1->contList,$$->contList);
-		   temp = $$;
-		  }
-     ;
+stmts: stmts stmt{
+                   	 struct stmt_t* temp;
+			 $$ = $2;
+		   	 $$->breakList = mergelist($1->breakList,$$->breakList);
+		  	 $$->contList = mergelist($1->contList,$$->contList);
+			 //printStack($$->contList);
+		  	 temp = $$;
+		  	 printf("sto allo 2\n");
+		     }
 
+     |stmt { $$ = $1;
+     	     printf("sto ena ena\n");
+	    }  
+     ;
 
 
 
@@ -768,11 +774,11 @@ elseprefix: ELSE{
 				}
 
 
-if: ifprefix stmt {
+if: ifprefix stmts {
 						patchlabel($1, nextquadlabel());
 					}
 
-	| ifprefix stmt elseprefix stmt{
+	| ifprefix stmts elseprefix stmts{
 										patchlabel($1, $3+1);
 										patchlabel($3, nextquadlabel());
 																
@@ -785,13 +791,13 @@ loopstart:	{++loopcounter;}
 
 loopend:	{--loopcounter;}
 
-loopstmt: loopstart stmt loopend	{$$ = $2;}
+loopstmt: loopstart stmts loopend	{$$ = $2;}
 
 whilestart: WHILE {
 		    $$ = nextquadlabel();  
 		  }
 
-whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); }expr PARENTHCLOSE  {
+whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); } expr PARENTHCLOSE  {
 	 				   currScope--;
 					   emit(IF_EQ,$3,newexpr_constbool(1),NULL,nextquadlabel() + 2,0);
 					   $$ = nextquadlabel();
@@ -1259,6 +1265,14 @@ void patchlist(int list,unsigned label){
 		list = next;
 	}
 
+}
+
+void printStack(int list){
+	while(list){
+		int next = quads[list].label;
+		printf("%u label\n",next);
+		list = next;
+	}
 }
 
 

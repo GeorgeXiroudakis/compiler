@@ -1,0 +1,15 @@
+function h(a,b){}
+
+function f(c) {}
+
+function g(d) {}
+
+for(i = 0;i < N; ++i){
+	if(f(x) [i] > y){
+		break;
+	}else{
+		z = g(y);
+		continue;
+	}
+	h(b,n);
+}
