@@ -1,0 +1,12 @@
+function f(a){return a;}
+
+x = f;
+
+f(3);
+
+y = print;
+
+y(89);
+
+f = 5;
+print = 5;
