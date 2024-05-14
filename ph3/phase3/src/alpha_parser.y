@@ -373,31 +373,37 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
     ;
 
 assignexpr: lvalue EQUAL expr {
-								if($1->type == tableitem_e){
-									emit(TABLESETELEM,$1,$1->index,$3,0,0);
-									$$ = emit_iftableitem($1);
-									$$->type = assignexpr_e;
-								}else{
-									SymbolTableEntry_t* t = $1->sym;
-									SymbolTableEntry_t* t2 = $3->sym;
-									$1->sym->gramType = $3->sym->gramType;
-									if($3->sym->gramType == gr_conststring) $1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
-									else if($3->sym->gramType == gr_string) $1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
-									else if($3->sym->gramType == gr_boolean) $1->sym->grammarVal.boolean = $3->sym->grammarVal.boolean;
-									else if($3->sym->gramType == gr_nil) $1->sym->grammarVal.nil = $3->sym->grammarVal.nil;
-									else if($3->sym->gramType == gr_integer) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
-									else if($3->sym->gramType == gr_constinteger) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
-									else if($3->sym->gramType == gr_real) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
-									else if($3->sym->gramType == gr_constreal) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
-									else if($3->sym->gramType == gr_funcaddr) $1->sym->grammarVal.funcPtr = $3->sym->grammarVal.funcPtr;
-									$1->type = $3->type;
-									emit(ASSIGN,$3, NULL, $1,0,0);
-									$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
-									$$->sym = newtemp();
-									$$->sym->gramType = $3->sym->gramType;
-									emit(ASSIGN, $1, NULL, $$, 0, 0);
+								
+								if($1->sym->type == userfunc || $1->sym->type == libfunc){
+									yyerror("function used as an lvalue");
 								}
-			       }
+								else{
+										if($1->type == tableitem_e){
+											emit(TABLESETELEM,$1,$1->index,$3,0,0);
+											$$ = emit_iftableitem($1);
+											$$->type = assignexpr_e;
+										}else{
+											SymbolTableEntry_t* t = $1->sym;
+											SymbolTableEntry_t* t2 = $3->sym;
+											$1->sym->gramType = $3->sym->gramType;
+											if($3->sym->gramType == gr_conststring) $1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
+											else if($3->sym->gramType == gr_string) $1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
+											else if($3->sym->gramType == gr_boolean) $1->sym->grammarVal.boolean = $3->sym->grammarVal.boolean;
+											else if($3->sym->gramType == gr_nil) $1->sym->grammarVal.nil = $3->sym->grammarVal.nil;
+											else if($3->sym->gramType == gr_integer) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
+											else if($3->sym->gramType == gr_constinteger) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
+											else if($3->sym->gramType == gr_real) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
+											else if($3->sym->gramType == gr_constreal) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
+											else if($3->sym->gramType == gr_funcaddr){printf("tt\n"); $1->sym->grammarVal.funcPtr = $3->sym->grammarVal.funcPtr;}
+											$1->type = $3->type;
+											emit(ASSIGN,$3, NULL, $1,0,0);
+											$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
+											$$->sym = newtemp();
+											$$->sym->gramType = $3->sym->gramType;
+											emit(ASSIGN, $1, NULL, $$, 0, 0);
+									   }
+								}
+							}
 	  ;
 
 primary: lvalue {$$ = emit_iftableitem($1);}
@@ -411,8 +417,7 @@ lvalue: IDENTIFIER		{
 							if(libFuncCheck($1)){ 
 								SymbolTableEntry_t *res = upStreamLookUp(currScope, $1);
 								if(res != NULL){
-									if(res->type == libfunc )yyerror("Redifinition of token");
-									else if(res->type == userfunc)yyerror("function used as an lvalue");
+									if(res->type == libfunc )yyerror("Redifinition of token");	
 									else if(res->type != global){
 										if(res->unionType == unionVar){ 
 											if(res->value.varVal->scope != currScope){
@@ -436,8 +441,7 @@ lvalue: IDENTIFIER		{
 									
 									
 								}
-							}else yyerror("existing library function with same name");
-
+							}else $$ = makeExpression(libraryfunc_e, upStreamLookUp(currScope, $1), NULL, NULL);
 						}
 						
      
