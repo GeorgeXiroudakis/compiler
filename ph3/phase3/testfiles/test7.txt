@@ -1,0 +1,8 @@
+a = 12;
+b = 3.14;
+c = "string";
+d = true;
+
+e = a + b;
+f = a + c;
+g = c + d;

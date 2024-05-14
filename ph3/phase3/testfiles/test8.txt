@@ -1,0 +1,2 @@
+x = (function f(y) { return y; });
+y = x(a);

@@ -59,6 +59,8 @@ unsigned scopeSpaceCounter = 1;
 struct lc_stack_t* lcs_top = 0;
 struct lc_stack_t* lcs_bottom = 0;
 
+int infunction = 0;
+
 #define loopcounter (lcs_top->counter)
 
 struct expr* emit_iftableitem(struct expr* e);
@@ -96,7 +98,7 @@ unsigned int istempname(char* s);
 unsigned int istempexpr(struct expr* e);
 void push_loopcounter(void);
 void pop_loopcounter(void);
-void make_stmt(struct stmt_t* s);
+struct stmt_t* make_stmt();
 int newlist(int  i);
 int mergelist(int l1,int l2);
 void patchlist(int list,unsigned label);
@@ -164,9 +166,9 @@ void printStack(int list);
 
 %type<indexedType> indexed indexedelem
 
-%type<forLabelsType> forprefix forpostfix for
+%type<forLabelsType> forprefix forpostfix
 
-%type<stmtType> stmt loopstmt break continue stmts
+%type<stmtType> stmt loopstmt break continue stmts while for if returnstmt block
 
 
 
@@ -193,15 +195,15 @@ program: stmt
        | program stmt
        ;
 
-stmt: expr SEMICOLON 
-    | if 
-    | while
-    | for
-    | returnstmt
-    | break
-    | continue
-    | block
-    | funcdef
+stmt: expr SEMICOLON { $$ = make_stmt($$); }
+    | if { $$ = make_stmt($$); }
+    | while {$$ =  make_stmt($$); }
+    | for { $$ = make_stmt($$); }
+    | returnstmt {$$ =  make_stmt($$); }
+    | break  { $$ = make_stmt($$); }
+    | continue { $$ = make_stmt($$); }
+    | block { $$ = make_stmt($$); }
+    | funcdef /*{ $$ = make_stmt($1); }*/
     | SEMICOLON
     ;
 
@@ -215,17 +217,17 @@ break: BREAK SEMICOLON {
 		       }
 
 continue: CONTINUE SEMICOLON {
-		      make_stmt($$);
+			      make_stmt($$);
 			      $$->contList = newlist(nextquadlabel());
 			      emit(JUMP,NULL,NULL,NULL,0,0);
 			     }
 
 stmts: stmts stmt{
                    	 struct stmt_t* temp;
-			 $$ = $2;
+			 //$$ = $2;
 		   	 $$->breakList = mergelist($1->breakList,$$->breakList);
 		  	 $$->contList = mergelist($1->contList,$$->contList);
-			 //printStack($$->contList);
+			 printStack($$->contList);
 		  	 temp = $$;
 		  	 printf("sto allo 2\n");
 		     }
@@ -237,15 +239,41 @@ stmts: stmts stmt{
 
 
 
-expr: assignexpr
-    | expr arithop expr %prec PLUS {$$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);emit(*$2,$1,$3,$$,0,0);}
+expr: assignexpr {	struct expr* temp;
+    			$$ = $1;
+			temp = $$;
+		 }
+    | expr arithop expr %prec PLUS {
+				if($1->sym->gramType != gr_integer && $1->sym->gramType != gr_constinteger && $1->sym->gramType != gr_constreal && $1->sym->gramType != gr_real){
+					yyerror("Invalid type for arithmetic expression");
+				}else if($3->sym->gramType != gr_integer && $3->sym->gramType != gr_constinteger && $3->sym->gramType != gr_constreal && $3->sym->gramType  != gr_real){
+					yyerror("Invalid type for arithmetic expression");
+				}else{	
+					$$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
+					emit(*$2,$1,$3,$$,0,0);
+				}
+				   }
     | expr compop expr %prec GREATERTHAN {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
+    					  
+					  if($1->sym->gramType != gr_integer && $1->sym->gramType != gr_constinteger && $1->sym->gramType != gr_constreal && $1->sym->gramType != gr_real){
+						yyerror("Invalid type for compare expression");
+				   }else if($3->sym->gramType != gr_integer && $3->sym->gramType != gr_constinteger && $3->sym->gramType != gr_constreal && $3->sym->gramType  != gr_real){
+						yyerror("Invalid type for compare expression");
+					}else{
+    					
     					  emit(*$2,$1,$3,NULL,nextquadlabel() + 3,0);
 					  emit(ASSIGN,newexpr_constbool(0),NULL,$$,0,0);
 					  emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
 					  emit(ASSIGN,newexpr_constbool(1),NULL,$$,0,0);
+					}
 					 }
-    | expr boolop expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);emit(*$2,$1,$3,$$,0,0);}
+    | expr boolop expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
+    				  if($1->sym->gramType != gr_boolean && $3->sym->gramType != gr_boolean){
+				  	yyerror("Invalid type for boolean expression");
+				  }else{
+				  	emit(*$2,$1,$3,$$,0,0);
+				  }
+				 }
     | term { $$ = makeExpression($1->type,$1->sym,NULL,NULL); }
     ;
 
@@ -353,13 +381,21 @@ assignexpr: lvalue EQUAL expr {
 									SymbolTableEntry_t* t = $1->sym;
 									SymbolTableEntry_t* t2 = $3->sym;
 									$1->sym->gramType = $3->sym->gramType;
+									if($3->sym->gramType == gr_conststring) $1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
+									else if($3->sym->gramType == gr_string) $1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
+									else if($3->sym->gramType == gr_boolean) $1->sym->grammarVal.boolean = $3->sym->grammarVal.boolean;
+									else if($3->sym->gramType == gr_nil) $1->sym->grammarVal.nil = $3->sym->grammarVal.nil;
+									else if($3->sym->gramType == gr_integer) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
+									else if($3->sym->gramType == gr_constinteger) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
+									else if($3->sym->gramType == gr_real) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
+									else if($3->sym->gramType == gr_constreal) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
+									else if($3->sym->gramType == gr_funcaddr) $1->sym->grammarVal.funcPtr = $3->sym->grammarVal.funcPtr;
 									$1->type = $3->type;
-									emit(ASSIGN,$3, NULL, $1,0, $1->sym->value.varVal->line);
-									$$ = makeExpression(assignexpr_e,$1,NULL,NULL); 
-									if($3->type == conststring_e) printf("YES\n");
-									else printf("NO\n");
+									emit(ASSIGN,$3, NULL, $1,0,0);
+									$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
 									$$->sym = newtemp();
-									emit(ASSIGN, $1, NULL, $$, 0, $1->sym->value.varVal->line);
+									$$->sym->gramType = $3->sym->gramType;
+									emit(ASSIGN, $1, NULL, $$, 0, 0);
 								}
 			       }
 	  ;
@@ -367,7 +403,7 @@ assignexpr: lvalue EQUAL expr {
 primary: lvalue {$$ = emit_iftableitem($1);}
        | call
        | objectdef  {$$ = makeExpression($1->type,$1->sym,NULL,NULL);} 
-       | PARENTHOPEN funcdef PARENTHCLOSE
+       | PARENTHOPEN funcdef PARENTHCLOSE { $$ = makeExpression($2->type,$2,NULL,NULL); }
        | const {$$ = makeExpression($1->type,$1->sym,NULL,NULL); }
        ;
 
@@ -385,10 +421,15 @@ lvalue: IDENTIFIER		{
 											}
 										}
 									}
-									if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);	
+									if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
+									else if(res->gramType == gr_string) $$ = makeExpression(conststring_e,res,NULL,NULL);
 									else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
 									else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
 									else if(res->gramType == gr_integer) $$ = makeExpression(constnum_e,res,NULL,NULL);
+									else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
+									else if(res->gramType == gr_real) $$ = makeExpression(constnum_e,res,NULL,NULL);
+									else if(res->gramType == gr_constreal) $$ = makeExpression(constnum_e,res,NULL,NULL);
+									else if(res->gramType == gr_funcaddr) $$ = makeExpression(programfunc_e,res,NULL,NULL);
 								}
 								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));
 									$$ = makeExpression(var_e,res,NULL,NULL);
@@ -414,9 +455,9 @@ lvalue: IDENTIFIER		{
 
 call_lvalue: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 								 if(res != NULL) {
-								 	if(res->type != userfunc && res->type != libfunc) yyerror("Function not found");
+								 	if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
 									//else if(res->type == userfunc && res->value.funcVal->scope != currScope) yyerror("Not accesible function");
-								 	else printf("caling function %s\n", res->value.varVal->name);
+								 	else printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
 								 }else yyerror("Function not found");
 								
 								 if(res->type == userfunc){
@@ -550,7 +591,7 @@ elist: expr	 {
 
 
 			 }
-     |
+     | {$$ = NULL;}
      ;
 
 indexed: indexedelem   {
@@ -661,9 +702,9 @@ stmt_list: program
 		 ;
 */
 
-funcblockstart:	{push_loopcounter();}
+funcblockstart:	{push_loopcounter(); infunction++;}
 
-funcblockend:	{pop_loopcounter();}
+funcblockend:	{pop_loopcounter(); --infunction;}
 
 funcname: IDENTIFIER	    {	
 				if(!libFuncCheck($1)) yyerror("existing library function with same name"); 
@@ -680,10 +721,11 @@ funcname: IDENTIFIER	    {
 	;
 
 funcprefix: FUNCTION funcname	{	SymbolTableEntry_t* newFunc = makeFuncEntry($2, userfunc);
-	  				$$ = newFunc;
+	  				newFunc->grammarVal.funcPtr = newFunc;
+					$$ = newFunc;
 	  				struct expr* newExpr = makeExpression(programfunc_e, newFunc, NULL, NULL);
 					$$->value.funcVal->qaddress = nextquadlabel();
-					emit(FUNCSTART, NULL, NULL, newExpr, 0, newFunc->value.funcVal->line);
+					emit(FUNCSTART, NULL, NULL, newExpr, 0,0);
 					//push ???? TODO
 					enterscopespace();
 					resetformalargsoffset();
@@ -704,7 +746,7 @@ funcdef: funcprefix funcargs funcblockstart funcbody funcblockend { exitscopespa
 					$1->value.funcVal->arglist = $2;
 					$$ = $1;
 					struct expr* newExpr = makeExpression(programfunc_e, $1, NULL, NULL);
-					emit(FUNCEND, NULL, NULL, newExpr, 0, $1->value.funcVal->line);
+					emit(FUNCEND, NULL, NULL, newExpr, 0, 0);
 				      }
        					
        ;
@@ -840,8 +882,18 @@ for: forpostfix
 
 
 
-returnstmt: RETURN SEMICOLON
-	  | RETURN expr SEMICOLON
+returnstmt: RETURN SEMICOLON { if(infunction > 0){
+	  		      	emit(RET,NULL,NULL,NULL,0,0);
+			      }else{
+			      	yyerror("Return outside of function");
+			      }
+			     }
+	  | RETURN expr SEMICOLON { if(infunction > 0){
+	  			    emit(RET,$2,NULL,NULL,0,0);
+	  			   }else{
+				   	yyerror("Return outside of function");
+				   }
+				  }
 	  ;
 
 %%
@@ -1234,8 +1286,10 @@ void pop_loopcounter(void){
 	return;
 }
 
-void make_stmt(struct stmt_t* s){
+struct stmt_t* make_stmt(){
+	struct stmt_t* s = malloc(sizeof(struct stmt_t));
 	s->breakList = s->contList = 0;
+	return s;
 }
 
 int newlist(int i){
@@ -1298,6 +1352,7 @@ SymbolTableEntry_t* makeLibEntry(char *name){
 	entry->unionType = unionFunc;
 	entry->value.funcVal = f;
 	entry->type = libfunc;
+	entry->gramType = gr_funcaddr;
 	
 	entry->symbol = malloc(sizeof(struct sym));
 
@@ -1308,6 +1363,7 @@ SymbolTableEntry_t* makeLibEntry(char *name){
 	entry->symbol->scopeSpace = currscopespace();
 	entry->symbol->offset = currscopeoffset();
 	inccurrscopeoffset();
+	entry->grammarVal.funcPtr = entry;
 
     	insertToSymTable(currScope, f->name, entry);
 
@@ -1368,6 +1424,7 @@ SymbolTableEntry_t* makeFuncEntry(char *name,enum SymbolType type){
 	entry->unionType = unionFunc;
 	entry->value.funcVal = f;
 	entry->type = type;
+	entry->gramType = gr_funcaddr;
 
 	entry->symbol = malloc(sizeof(struct sym));
 	

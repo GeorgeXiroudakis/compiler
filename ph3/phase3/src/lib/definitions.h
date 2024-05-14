@@ -7,7 +7,7 @@ struct SymbolTableEntry;
 struct sym;
 
 enum grammar_type{
-	gr_integer, gr_constinteger, gr_constreal, gr_real, gr_conststring, gr_string, gr_boolean, gr_nil
+	gr_integer, gr_constinteger, gr_constreal, gr_real, gr_conststring, gr_string, gr_boolean, gr_nil, gr_funcaddr
 };
 
 typedef struct variable{
@@ -62,6 +62,7 @@ typedef struct SymbolTableEntry{
 		char* string;
 		short int boolean;
 		short int nil;
+		struct SymbolTableEntry* funcPtr;
 	}grammarVal;
 
 } SymbolTableEntry_t;

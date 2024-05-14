@@ -4,6 +4,12 @@ function f(x){x = 2;}
 while(a){
 
 	a = f(a);
+	
+	if(a) {
+		break;
+	}else{
+		break;
+	}
 
 	continue;
 	break;
