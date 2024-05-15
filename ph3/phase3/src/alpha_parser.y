@@ -451,24 +451,60 @@ lvalue: IDENTIFIER		{
 						if(res == NULL){
 							res = makeVariableEntry($2,local);
 							$$ = makeExpression(var_e,res,NULL,NULL);
+						}else{
+							
+							if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
+							else if(res->gramType == gr_string) $$ = makeExpression(conststring_e,res,NULL,NULL);
+							else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
+							else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
+							else if(res->gramType == gr_integer) $$ = makeExpression(constnum_e,res,NULL,NULL);
+							else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
+							else if(res->gramType == gr_real) $$ = makeExpression(constnum_e,res,NULL,NULL);
+							else if(res->gramType == gr_constreal) $$ = makeExpression(constnum_e,res,NULL,NULL);
+							else if(res->gramType == gr_funcaddr) $$ = makeExpression(programfunc_e,res,NULL,NULL);
 						}
-					} else yyerror("existing library function with same name"); }     
-      | DOUBLECOLON IDENTIFIER	{(scopeLookUp(0,$2) == NULL) ? yyerror("Global Variable not found") : ($$ = $2);}
+					} else {
+						$$ = makeExpression(libraryfunc_e, scopeLookUp(currScope, $1), NULL, NULL);
+					       }
+				}     
+      | DOUBLECOLON IDENTIFIER	{ 
+      				  SymbolTableEntry_t* res = scopeLookUp(0,$2); 	
+      				  if(res == NULL){ 
+      					 yyerror("Global Variable not found");
+					 $$ = makeExpression(nil_e, NULL, NULL, NULL);
+				  }else{
+					if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
+					else if(res->gramType == gr_string) $$ = makeExpression(conststring_e,res,NULL,NULL);
+					else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
+					else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
+					else if(res->gramType == gr_integer) $$ = makeExpression(constnum_e,res,NULL,NULL);
+					else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
+					else if(res->gramType == gr_real) $$ = makeExpression(constnum_e,res,NULL,NULL);
+					else if(res->gramType == gr_constreal) $$ = makeExpression(constnum_e,res,NULL,NULL);
+					else if(res->gramType == gr_funcaddr) $$ = makeExpression(programfunc_e,res,NULL,NULL);
+				  }
+				}
       | member {$$ = $1;}
       ;
 
 call_lvalue: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 								 if(res != NULL) {
 								 	if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
-									//else if(res->type == userfunc && res->value.funcVal->scope != currScope) yyerror("Not accesible function");
-								 	else printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
-								 }else yyerror("Function not found");
-								
-								 if(res->type == userfunc){
-									 $$ = makeExpression(programfunc_e,res,NULL,NULL);
-								 }else{
-								 	 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
+								 	else {
+										printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
+										if(res->type == userfunc){
+											 $$ = makeExpression(programfunc_e,res,NULL,NULL);
+								 		}else{
+								 			 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
+								 		}
+									}
+								 }else {
+								 $$ = makeExpression(nil_e,NULL,NULL,NULL);
+								 yyerror("Function not found");
+								 
 								 }
+								
+								 
 								 
 						}		
 	   | DOUBLECOLON IDENTIFIER	{SymbolTableEntry_t *res = upStreamLookUp(0,$2);
@@ -478,7 +514,7 @@ call_lvalue: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$
 								}else yyerror("Function not found");
 					}
 								
-	   | member {$$ = $1;}
+	   | member {$$ = makeExpression($1->type,$1->sym,0,0);}
 	   ;
 
 member: lvalue DOT IDENTIFIER {$$ = member_item($1,$3);}
@@ -498,37 +534,35 @@ call: call PARENTHOPEN elist PARENTHCLOSE {
     			  $1 = emit_iftableitem($1);
 			  if($2->method){
 			  	
-				struct exprNode* temp = $2->elist;
-			 	
-				while(temp->next != NULL){
-					temp = temp->next; 
-				}
-				temp->next = $1;
+			 	struct exprNode* new = malloc(sizeof(struct exprNode));
+				new->node = $1;
+				new->next = $2->elist;
+				$2->elist = new;
+
 				
 				$1 = emit_iftableitem(member_item($1,$2->name));
 			  } 
 			 
-			  $$ = makeCall($$,$2->elist);
+			  $$ = makeCall($1,$2->elist);
 			  elistFlag = 0;
     			 }
-   /* | lvalue methodcall {$1 = emit_iftableitem($1); 
+    | lvalue methodcall {$1 = emit_iftableitem($1); 
     				printf("RAAAAAAAA\n");
 			  	if($2->method){
 			  	
-				struct exprNode* temp = $2->elist;
-			 	
-				while(temp->next != NULL){
-					temp = temp->next; 
-				}
-				temp->next = $1;
+			 	struct exprNode* new = malloc(sizeof(struct exprNode));
+				new->node = $1;
+				new->next = $2->elist;
+				$2->elist = new;
+				
 				
 				$1 = emit_iftableitem(member_item($1,$2->name));
 			  } 
 			 
-			  $$ = makeCall($$,$2->elist);
+			  $$ = makeCall($1,$2->elist);
 			  elistFlag = 0;
 
-			  }*/
+			  }
     		
     | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE {
     								      	struct expr* func = makeExpression(programfunc_e,$2,NULL,NULL);
@@ -541,10 +575,10 @@ callsuffix: normcall { $$ = $1; }
 	  | methodcall { $$ = $1; }
 	  ;
 
-normcall: PARENTHOPEN elist PARENTHCLOSE {$$ = malloc(sizeof(struct call)); $$->elist = $2; $$->method  = 0; $$->name = NULL; }
+normcall: PARENTHOPEN elist PARENTHCLOSE {elistFlag = 0;$$ = malloc(sizeof(struct call)); $$->elist = $2; $$->method  = 0; $$->name = NULL; }
 	;
 
-methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE {$$ = malloc(sizeof(struct call)); $$->elist = $4; $$->method  = 1; $$->name = strdup($2); }
+methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE {elistFlag = 0; $$ = malloc(sizeof(struct call)); $$->elist = $4; $$->method  = 1; $$->name = strdup($2); }
 	  ;
 
 elist: expr	 {
