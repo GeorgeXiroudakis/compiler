@@ -507,11 +507,21 @@ call_lvalue: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$
 								 
 								 
 						}		
-	   | DOUBLECOLON IDENTIFIER	{SymbolTableEntry_t *res = upStreamLookUp(0,$2);
+	   | DOUBLECOLON IDENTIFIER	{SymbolTableEntry_t *res = scopeLookUp(0,$2);
 								 if(res != NULL){
-									if(res->type != userfunc && res->type != libfunc) yyerror("Function not found");
-									else printf("caling function %s\n", res->value.varVal->name);
-								}else yyerror("Function not found");
+									if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
+									else {
+										printf("caling function %s\n", res->value.varVal->name);
+										if(res->type == userfunc){
+											 $$ = makeExpression(programfunc_e,res,NULL,NULL);
+								 		}else{
+								 			 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
+								 		}
+									}
+								}else {
+									yyerror("Function not found");
+									$$ = makeExpression(nil_e,NULL,NULL,NULL);
+								}
 					}
 								
 	   | member {$$ = makeExpression($1->type,$1->sym,0,0);}
@@ -777,10 +787,12 @@ funcargs: PARENTHOPEN{currScope++; allocateScopes(currScope);} idlist {currScope
 funcbody: block {$$ = currscopeoffset(); exitscopespace();}
 	;
 
-funcdef: funcprefix funcargs funcblockstart funcbody funcblockend { exitscopespace();
-       					 $$->value.funcVal->totallocals = $4;
+funcdef: funcprefix funcargs funcblockstart funcbody funcblockend { 
+       					exitscopespace();
+       					$1->value.funcVal->totallocals = $4;
+					printf("Number of local variables %u\n",$4);
 					//TODO: int offset = popandtop
-					//restorecurroffset(offset);
+					//restorecurrscopeoffset(offset);
 					$1->value.funcVal->arglist = $2;
 					$$ = $1;
 					struct expr* newExpr = makeExpression(programfunc_e, $1, NULL, NULL);
