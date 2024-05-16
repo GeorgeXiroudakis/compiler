@@ -65,6 +65,8 @@ typedef struct SymbolTableEntry{
 		struct SymbolTableEntry* funcPtr;
 	}grammarVal;
 
+	short int boolVal;
+
 } SymbolTableEntry_t;
 
 typedef struct scopeListNode{

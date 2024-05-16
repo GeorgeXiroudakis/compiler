@@ -268,11 +268,12 @@ expr: assignexpr {	struct expr* temp;
 					}
 					 }
     | expr boolop expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
-    				  if($1->sym->gramType != gr_boolean && $3->sym->gramType != gr_boolean){
+    				  /*if($1->sym->gramType != gr_boolean && $3->sym->gramType != gr_boolean){
 				  	yyerror("Invalid type for boolean expression");
 				  }else{
 				  	emit(*$2,$1,$3,$$,0,0);
-				  }
+				  }*/
+				  emit(*$2, newexpr_constbool($1->sym->boolVal), newexpr_constbool($3->sym->boolVal), $$, 0, 0);
 				 }
     | term { $$ = makeExpression($1->type,$1->sym,NULL,NULL); }
     ;
@@ -395,6 +396,8 @@ assignexpr: lvalue EQUAL expr {
 											else if($3->sym->gramType == gr_real) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
 											else if($3->sym->gramType == gr_constreal) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
 											else if($3->sym->gramType == gr_funcaddr){printf("tt\n"); $1->sym->grammarVal.funcPtr = $3->sym->grammarVal.funcPtr;}
+											$1->sym->boolVal = $3->sym->boolVal;
+											printf("%d\n", $3->sym->boolVal);
 											$1->type = $3->type;
 											emit(ASSIGN,$3, NULL, $1,0,0);
 											$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
@@ -421,7 +424,7 @@ lvalue: IDENTIFIER		{
 									else if(res->type != global){
 										if(res->unionType == unionVar){ 
 											if(res->value.varVal->scope != currScope){
-												yyerror("Not accesible variable");//TODO: Check for loops
+											//	yyerror("Not accesible variable");  //TODO: Check for loops
 
 											}
 										}
@@ -484,10 +487,11 @@ lvalue: IDENTIFIER		{
 					else if(res->gramType == gr_funcaddr) $$ = makeExpression(programfunc_e,res,NULL,NULL);
 				  }
 				}
-      | member {$$ = $1;}
+      | member {$$ = makeExpression($1->type,$1->sym, NULL, NULL);}
       ;
 
-call_lvalue: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
+call_lvalue: IDENTIFIER				{
+								SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 								 if(res != NULL) {
 								 	if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
 								 	else {
@@ -498,7 +502,7 @@ call_lvalue: IDENTIFIER				{SymbolTableEntry_t *res = upStreamLookUp(currScope,$
 								 			 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
 								 		}
 									}
-								 }else {
+								 }else{
 								 $$ = makeExpression(nil_e,NULL,NULL,NULL);
 								 yyerror("Function not found");
 								 
@@ -532,8 +536,13 @@ member: lvalue DOT IDENTIFIER {$$ = member_item($1,$3);}
       						  $1 = emit_iftableitem($1);
       						  $$ = makeExpression(tableitem_e,$1->sym,$3,NULL);
 						 }
-      | call DOT IDENTIFIER
-      | call SQBRACKETOPEN expr SQBRACKETCLOSE
+      | call DOT IDENTIFIER{
+      				$$ = member_item($1, $3);	
+      			   }
+      | call SQBRACKETOPEN expr SQBRACKETCLOSE {
+      							$1 = emit_iftableitem($1);
+							$$ = makeExpression(tableitem_e, $1->sym, $3, NULL);
+      					       }
       ;
 
 call: call PARENTHOPEN elist PARENTHCLOSE {
@@ -695,7 +704,9 @@ indexed: indexedelem   {
 
 
 objectdef: SQBRACKETOPEN elist SQBRACKETCLOSE {
+	 							elistFlag = 0;
 								struct expr* t = makeExpression(newtable_e,newtemp(),NULL,NULL); 
+								t->sym->boolVal = 1;
 								emit(TABLECREATE,NULL,NULL,t,0,0);
 								
 								struct exprNode* head = $2;
@@ -706,13 +717,13 @@ objectdef: SQBRACKETOPEN elist SQBRACKETCLOSE {
 									head = head->next;
 								}								
 
-
 								$$ = t;
 					      }
 	 ; 
 
 objectdef: SQBRACKETOPEN indexed SQBRACKETCLOSE { 		
 								struct expr* t = makeExpression(newtable_e,newtemp(),NULL,NULL); 
+								t->sym->boolVal = 1;
 								emit(TABLECREATE,NULL,NULL,t,0,0); 
 								
 								struct indexed_elem* head = $2;
@@ -801,19 +812,22 @@ funcdef: funcprefix funcargs funcblockstart funcbody funcblockend {
        					
        ;
 
-const: number {$$ = malloc(sizeof(struct expr)); $$->sym = $1; $$->type = constnum_e; $$->index = NULL; $$->next = NULL;  } 
+const: number {$$ = malloc(sizeof(struct expr)); $$->sym = $1;
+		$$->type = constnum_e; $$->index = NULL; $$->next = NULL;  } 
      | STRING {$$ = malloc(sizeof(struct expr)); $$->type = conststring_e;$$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->symbol = malloc(sizeof(struct sym)); 
      		$$->sym->gramType = gr_conststring; 
      		$$->sym->symbol->name = "const_string"; $$->sym->grammarVal.string = malloc(strlen($1)+1); 
-     		strcpy($$->sym->grammarVal.string, $1); $$->type = conststring_e; $$->index = NULL; $$->next = NULL;}
+     		strcpy($$->sym->grammarVal.string, $1); 
+		$$->sym->boolVal = (strcmp($1, "") == 0) ? 0 : 1;
+		$$->type = conststring_e; $$->index = NULL; $$->next = NULL;}
      | NIL {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t));$$->sym->symbol = malloc(sizeof(struct sym)); $$->sym->gramType = gr_nil; 
-     		$$->sym->symbol->name = "nil"; $$->sym->grammarVal.nil = 1; $$->type = nil_e; $$->index = NULL;
+     		$$->sym->symbol->name = "nil"; $$->sym->grammarVal.nil = 1; $$->sym->boolVal = 0; $$->type = nil_e; $$->index = NULL;
      		$$->next = NULL;}
      | TRUE {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->symbol = malloc(sizeof(struct sym));$$->sym->gramType = gr_boolean; 
-     		$$->sym->symbol->name = "const_true"; $$->sym->grammarVal.boolean = 1; $$->type = constbool_e; 
+     		$$->sym->symbol->name = "const_true"; $$->sym->grammarVal.boolean = 1; $$->sym->boolVal = 1; $$->type = constbool_e; 
      		$$->index = NULL; $$->next = NULL;}
      | FALSE {$$ = malloc(sizeof(struct expr)); $$->sym = malloc(sizeof(SymbolTableEntry_t)); $$->sym->symbol = malloc(sizeof(struct sym));$$->sym->gramType = gr_boolean;
-     		$$->sym->symbol->name = "const_false";$$->sym->grammarVal.boolean = 0; $$->type = constbool_e; 
+     		$$->sym->symbol->name = "const_false";$$->sym->grammarVal.boolean = 0; $$->sym->boolVal = 0; $$->type = constbool_e; 
      		$$->index = NULL;$$->next = NULL;}
      ;
 
@@ -824,8 +838,9 @@ number: INTEGER {$$ = malloc(sizeof(SymbolTableEntry_t));
                     snprintf($$->symbol->name,length + 1,"%d",$1);
                     $$->gramType = gr_integer;
                     $$->grammarVal.intNum = $1;
-					$$->value.varVal = malloc(sizeof(Variable_t));
-					$$->value.varVal->line = yylineno;
+		    $$->boolVal = ($1 == 0) ? 0 : 1;
+		    $$->value.varVal = malloc(sizeof(Variable_t));
+		    $$->value.varVal->line = yylineno;
                 }
       | REAL{$$ = malloc(sizeof(SymbolTableEntry_t));
                                 int length = snprintf(NULL,0,"%f",$1);
@@ -834,8 +849,9 @@ number: INTEGER {$$ = malloc(sizeof(SymbolTableEntry_t));
                                  snprintf($$->symbol->name,length + 1,"%f",$1);
                                  $$->gramType = gr_real;
                                  $$->grammarVal.realNum = $1;
-								 $$->value.varVal = malloc(sizeof(Variable_t));
-					             $$->value.varVal->line = yylineno;
+		    		 $$->boolVal = ($1 == 0) ? 0 : 1;
+				 $$->value.varVal = malloc(sizeof(Variable_t));
+				 $$->value.varVal->line = yylineno;
 					}
       ;
 
@@ -1403,7 +1419,8 @@ SymbolTableEntry_t* makeLibEntry(char *name){
 	entry->value.funcVal = f;
 	entry->type = libfunc;
 	entry->gramType = gr_funcaddr;
-	
+	entry->boolVal = 1;
+
 	entry->symbol = malloc(sizeof(struct sym));
 
 	assert(entry->symbol);
@@ -1439,6 +1456,7 @@ SymbolTableEntry_t* makeVariableEntry(char *name, enum SymbolType type){
 	entry->unionType = unionVar;
 	entry->value.varVal = v;
 	entry->type = type;
+	entry->boolVal = 0;
 
 	entry->symbol = malloc(sizeof(struct sym));
 	
@@ -1475,6 +1493,7 @@ SymbolTableEntry_t* makeFuncEntry(char *name,enum SymbolType type){
 	entry->value.funcVal = f;
 	entry->type = type;
 	entry->gramType = gr_funcaddr;
+	entry->boolVal = 1;
 
 	entry->symbol = malloc(sizeof(struct sym));
 	
