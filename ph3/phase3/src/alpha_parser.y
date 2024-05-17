@@ -195,16 +195,16 @@ program: stmt
        | program stmt
        ;
 
-stmt: expr SEMICOLON {$$ = make_stmt(); printf("expr semi\n");}
-    | if {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("if: $$->contlist = %d\n", $$->contList);}
+stmt: expr SEMICOLON {$$ = make_stmt();}
+    | if {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; }
     | while {$$ = make_stmt();}
     | for {$$ = make_stmt();}
-    | returnstmt {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("returnstmt: $$->contlist = %d\n", $$->contList);}
-    | break {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("brake: $$->contlist = %d\n", $$->contList);}
-    | continue {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("continue: $$->contlist = %d\n", $$->contList);}
-    | block { $$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("blocl: $$->contlist = %d\n", $$->contList);}
-    | funcdef { $$ = make_stmt(); printf("functdef: $$->contlist = %d\n", $$->contList);}
-    | SEMICOLON { $$ = make_stmt(); printf("semi: $$->contlist = %d\n", $$->contList);}
+    | returnstmt {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; }
+    | break {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; }
+    | continue {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; }
+    | block { $$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; }
+    | funcdef { $$ = make_stmt(); }
+    | SEMICOLON { $$ = make_stmt(); }
     ;
     
     break: BREAK SEMICOLON{
@@ -593,7 +593,6 @@ call: call PARENTHOPEN elist PARENTHCLOSE {
 			  elistFlag = 0;
     			 }
     | lvalue methodcall {$1 = emit_iftableitem($1); 
-    				printf("RAAAAAAAA\n");
 			  	if($2->method){
 			  	
 			 	struct exprNode* new = malloc(sizeof(struct exprNode));
@@ -820,7 +819,6 @@ funcbody: block {$$ = currscopeoffset(); exitscopespace();}
 funcdef: funcprefix funcargs funcblockstart funcbody funcblockend { 
        					exitscopespace();
        					$1->value.funcVal->totallocals = $4;
-					printf("Number of local variables %u\n",$4);
 					//TODO: int offset = popandtop
 					//restorecurrscopeoffset(offset);
 					$1->value.funcVal->arglist = $2;
@@ -914,14 +912,14 @@ elseprefix: ELSE{
 
 if: ifprefix stmt { 				$$ = make_stmt(); 
 						$$->breakList = $2->breakList;
-						$$->contList = $2->contList; printf("ifprefix: $$->contlist = %d\n", $$->contList);	
+						$$->contList = $2->contList; 
 						patchlabel($1, nextquadlabel());
 					}
 
 	| ifprefix stmt elseprefix stmt{
 										$$ = make_stmt(); 
-										$$->breakList = mergelist($2->breakList, $4->breakList); printf("ifelsepre: $$->breaklist = %d\n", $$->breakList);
-										$$->contList = mergelist($2->contList, $4->contList); printf("ifprefix: $$->contlist = %d\n", $$->contList);
+										$$->breakList = mergelist($2->breakList, $4->breakList); 
+										$$->contList = mergelist($2->contList, $4->contList); 
 										patchlabel($1, $3+1);
 										patchlabel($3, nextquadlabel());
 																
@@ -938,7 +936,6 @@ loopstmt: loopstart stmt loopend	{
 						
 						$$ = make_stmt();
 						$$ = $2;
-						printf("loopstmt: $$->contlist = %d\n", $$->contList);
 					}
 
 whilestart: WHILE {
@@ -968,8 +965,8 @@ while: whilestart whilecond loopstmt {
 					patchlabel($2,nextquadlabel());
 					
 					$$ = make_stmt(); 
-					$$->breakList = $3->breakList; printf("willestm: $$->breaklist = %d\n", $$->breakList);
-					$$->contList = $3->contList; printf("willestm: $$->contlist = %d\n", $$->contList);
+					$$->breakList = $3->breakList; 
+					$$->contList = $3->contList;
 										
 					patchlist($3->breakList, nextquadlabel());
 					patchlist($3->contList, $1);
@@ -1006,8 +1003,8 @@ forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} 
 								    	   patchlabel($8,$2 + 1);
 
  									   $$ = make_stmt(); 
-									   $$->breakList = $7->breakList; printf("willestm: $$->breaklist = %d\n", $$->breakList);
-									   $$->contList = $7->contList; printf("willestm: $$->contlist = %d\n", $$->contList);
+									   $$->breakList = $7->breakList;
+									   $$->contList = $7->contList; 
 
 								    	   patchlist($7->breakList, nextquadlabel());
 								    	   patchlist($7->contList, $2 + 1);
@@ -1015,8 +1012,8 @@ forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} 
 
 for: forpostfix {
 			 $$ = make_stmt(); 
-			$$->breakList = $1->breakList; printf("willestm: $$->breaklist = %d\n", $$->breakList);
-			$$->contList = $1->contList; printf("willestm: $$->contlist = %d\n", $$->contList);
+			$$->breakList = $1->breakList; 
+			$$->contList = $1->contList; 
 		}
 
 
@@ -1452,7 +1449,6 @@ int mergelist(int l1,int l2){
 	}else{
 		int i = l1;
 		while(quads[i].label){
-		printf("%u\n", quads[i].label);
 			i = quads[i].label;
 		}
 		quads[i].label = l2;
@@ -1461,14 +1457,10 @@ int mergelist(int l1,int l2){
 }
 
 void patchlist(int list,unsigned label){
-	printf("entered patchlist\n");
 	while(list){
-		printf("now on quad: %d\n", list);
 		int next = quads[list].label;
-		printf("quads[%d].label = %u\n", list, label);
 		quads[list].label = label;
 		list = next;
-		printf("next quad: %d\n", next);
 	}
 
 }
@@ -1476,7 +1468,6 @@ void patchlist(int list,unsigned label){
 void printStack(int list){
 	while(list){
 		int next = quads[list].label;
-		printf("%u label\n",next);
 		list = next;
 	}
 }
