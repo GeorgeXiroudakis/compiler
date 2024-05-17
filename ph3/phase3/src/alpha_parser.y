@@ -166,9 +166,9 @@ void printStack(int list);
 
 %type<indexedType> indexed indexedelem
 
-%type<forLabelsType> forprefix forpostfix
+%type<forLabelsType> forprefix 
 
-%type<stmtType> stmt loopstmt break continue stmts while for if returnstmt block 
+%type<stmtType> stmt loopstmt break continue stmts while for if returnstmt block forpostfix
 
 
 
@@ -198,10 +198,10 @@ program: stmt
 stmt: expr SEMICOLON {$$ = make_stmt(); printf("expr semi\n");}
     | if {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("if: $$->contlist = %d\n", $$->contList);}
     | while {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("while: $$->contlist = %d\n", $$->contList);}
-    | for {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("break: $$->contlist = %d\n", $$->contList);}
-    | returnstmt {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("break: $$->contlist = %d\n", $$->contList);}
-    | break {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("break: $$->contlist = %d\n", $$->contList);}
-    | continue {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("break: $$->contlist = %d\n", $$->contList);}
+    | for {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("for: $$->contlist = %d raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n", $$->contList);}
+    | returnstmt {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("returnstmt: $$->contlist = %d\n", $$->contList);}
+    | break {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("brake: $$->contlist = %d\n", $$->contList);}
+    | continue {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("continue: $$->contlist = %d\n", $$->contList);}
     | block { $$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("blocl: $$->contlist = %d\n", $$->contList);}
     | funcdef { $$ = make_stmt(); printf("functdef: $$->contlist = %d\n", $$->contList);}
     | SEMICOLON { $$ = make_stmt(); printf("semi: $$->contlist = %d\n", $$->contList);}
@@ -230,7 +230,9 @@ stmts: stmts stmt{
      		$$ = make_stmt();
      		$$->breakList = $1->breakList;
      		$$->contList = $1->contList;
-	    }  
+	    }
+	    
+     |  
      ;
 
 
@@ -747,15 +749,7 @@ indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE {
 block: CURBRACKETOPEN {currScope++; allocateScopes(currScope);} stmts CURBRACKETCLOSE {hideScope(currScope);currScope--; $$ = make_stmt();$$ = $3;}  
      ;
 
-stmt_list: program
-		 |
-		 ;
 
-/* stmt_list: stmt 
-		 | stmt_list stmt
-		 |
-		 ;
-*/
 
 funcblockstart:	{push_loopcounter(); infunction++;}
 
@@ -919,7 +913,6 @@ whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); } expr PARENTHCL
 	 				 }
 
 while: whilestart whilecond loopstmt {
-					
      					emit(JUMP,NULL,NULL,NULL,$1,0);
 					patchlabel($2,nextquadlabel());
 					
@@ -949,11 +942,19 @@ forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} 
 								    	   patchlabel($6,$1->test);
 								    	   patchlabel($8,$2 + 1);
 
+ 									   $$ = make_stmt(); 
+									   $$->breakList = $7->breakList; printf("willestm: $$->breaklist = %d\n", $$->breakList);
+									   $$->contList = $7->contList; printf("willestm: $$->contlist = %d\n", $$->contList);
+
 								    	   patchlist($7->breakList, nextquadlabel());
 								    	   patchlist($7->contList, $2 + 1);
    								  	 }
 
-for: forpostfix {/*TODO: na gemisoume to stmt tou for!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/}
+for: forpostfix {
+			 $$ = make_stmt(); 
+			$$->breakList = $1->breakList; printf("willestm: $$->breaklist = %d\n", $$->breakList);
+			$$->contList = $1->contList; printf("willestm: $$->contlist = %d\n", $$->contList);
+		}
 
 
 /*forstmt: FOR PARENTHOPEN {currscope++; allocatescopes(currscope); } elist SEMICOLON expr SEMICOLON elist PARENTHCLOSE {currScope--;} stmt  ;*/
