@@ -207,16 +207,23 @@ stmt: expr SEMICOLON {$$ = make_stmt();}
     | SEMICOLON { $$ = make_stmt(); }
     ;
     
-    break: BREAK SEMICOLON{
-    				$$ = make_stmt();
-    				$$->breakList = newlist(nextquadlabel());
-    				emit(JUMP, NULL, NULL, NULL, 0, 0);
-    				}
+    break: BREAK SEMICOLON{	$$ = make_stmt();
+    				if(loopcounter != 0){	
+	    				$$->breakList = newlist(nextquadlabel());
+	    				emit(JUMP, NULL, NULL, NULL, 0, 0);
+	    			} else {
+	    				yyerror("Illegal break: not in a loop");
+	    			}
+    			}
     
     continue: CONTINUE SEMICOLON{    				
-    				$$ = make_stmt();
-    				$$->contList = newlist(nextquadlabel());
-    				emit(JUMP, NULL, NULL, NULL, 0, 0);
+	    				$$ = make_stmt();
+	    				if(loopcounter != 0){	
+		    				$$->contList = newlist(nextquadlabel());
+    						emit(JUMP, NULL, NULL, NULL, 0, 0);
+		    			} else {
+		    				yyerror("Illegal continue: not in a loop");
+		    			}
     				}
 
 

@@ -1,0 +1,12 @@
+function f(){}
+x = f();
+while(x) {
+	function g(){
+		break;
+		while(x>0){
+			continue;
+		}
+		continue;
+	}
+	break;
+}
