@@ -85,7 +85,7 @@ void enterscopespace(void);
 void exitscopespace(void);
 void resetformalargsoffset(void);
 void resetfunctionlocalsoffset(void);
-void  restorecurrscopeoffset(unsigned n);
+void restorecurrscopeoffset(unsigned n);
 unsigned nextquadlabel(void);
 void patchlabel(unsigned quadNo,unsigned label);
 void printQuads(void);
@@ -168,7 +168,7 @@ void printStack(int list);
 
 %type<forLabelsType> forprefix forpostfix
 
-%type<stmtType> stmt loopstmt break continue stmts while for if returnstmt block
+%type<stmtType> stmt loopstmt break continue stmts while for if returnstmt block 
 
 
 
@@ -195,45 +195,41 @@ program: stmt
        | program stmt
        ;
 
-stmt: expr SEMICOLON { $$ = make_stmt($$); }
-    | if { $$ = make_stmt($$); }
-    | while {$$ =  make_stmt($$); }
-    | for { $$ = make_stmt($$); }
-    | returnstmt {$$ =  make_stmt($$); }
-    | break  { $$ = make_stmt($$); }
-    | continue { $$ = make_stmt($$); }
-    | block { $$ = make_stmt($$); }
-    | funcdef /*{ $$ = make_stmt($1); }*/
-    | SEMICOLON
+stmt: expr SEMICOLON {$$ = make_stmt(); printf("expr semi\n");}
+    | if {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("if: $$->contlist = %d\n", $$->contList);}
+    | while {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("while: $$->contlist = %d\n", $$->contList);}
+    | for {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("break: $$->contlist = %d\n", $$->contList);}
+    | returnstmt {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("break: $$->contlist = %d\n", $$->contList);}
+    | break {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("break: $$->contlist = %d\n", $$->contList);}
+    | continue {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("break: $$->contlist = %d\n", $$->contList);}
+    | block { $$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("blocl: $$->contlist = %d\n", $$->contList);}
+    | funcdef { $$ = make_stmt(); printf("functdef: $$->contlist = %d\n", $$->contList);}
+    | SEMICOLON { $$ = make_stmt(); printf("semi: $$->contlist = %d\n", $$->contList);}
     ;
+    
+    break: BREAK SEMICOLON{
+    				$$ = make_stmt();
+    				$$->breakList = newlist(nextquadlabel());
+    				emit(JUMP, NULL, NULL, NULL, 0, 0);
+    				}
+    
+    continue: CONTINUE SEMICOLON{    				
+    				$$ = make_stmt();
+    				$$->contList = newlist(nextquadlabel());
+    				emit(JUMP, NULL, NULL, NULL, 0, 0);
+    				}
 
-break: BREAK SEMICOLON {
-			struct stmt_t* temp;
-			make_stmt($$);
-			temp = $$;
-			$$->breakList = newlist(nextquadlabel());
-			temp = $$;
-			emit(JUMP,NULL,NULL,NULL,0,0);
-		       }
-
-continue: CONTINUE SEMICOLON {
-			      make_stmt($$);
-			      $$->contList = newlist(nextquadlabel());
-			      emit(JUMP,NULL,NULL,NULL,0,0);
-			     }
 
 stmts: stmts stmt{
-                   	 struct stmt_t* temp;
-			 //$$ = $2;
-		   	 $$->breakList = mergelist($1->breakList,$$->breakList);
-		  	 $$->contList = mergelist($1->contList,$$->contList);
-			 printStack($$->contList);
-		  	 temp = $$;
-		  	 printf("sto allo 2\n");
+			$$ = make_stmt();
+                 	$$->breakList = mergelist($1->breakList, $2->breakList);
+                 	$$->contList = mergelist($1->contList, $2->contList);
 		     }
 
-     |stmt { $$ = $1;
-     	     printf("sto ena ena\n");
+     |stmt { 
+     		$$ = make_stmt();
+     		$$->breakList = $1->breakList;
+     		$$->contList = $1->contList;
 	    }  
      ;
 
@@ -748,7 +744,7 @@ indexedelem: CURBRACKETOPEN expr COLON expr CURBRACKETCLOSE {
 								
 								};
 
-block: CURBRACKETOPEN {currScope++; allocateScopes(currScope);} stmt_list CURBRACKETCLOSE {hideScope(currScope);currScope--;}  
+block: CURBRACKETOPEN {currScope++; allocateScopes(currScope);} stmts CURBRACKETCLOSE {hideScope(currScope);currScope--; $$ = make_stmt();$$ = $3;}  
      ;
 
 stmt_list: program
@@ -882,11 +878,16 @@ elseprefix: ELSE{
 				}
 
 
-if: ifprefix stmts {
+if: ifprefix stmt { 				$$ = make_stmt(); 
+						$$->breakList = $2->breakList;
+						$$->contList = $2->contList; printf("ifprefix: $$->contlist = %d\n", $$->contList);	
 						patchlabel($1, nextquadlabel());
 					}
 
-	| ifprefix stmts elseprefix stmts{
+	| ifprefix stmt elseprefix stmt{
+										$$ = make_stmt(); 
+										$$->breakList = mergelist($2->breakList, $4->breakList); printf("ifelsepre: $$->breaklist = %d\n", $$->breakList);
+										$$->contList = mergelist($2->contList, $4->contList); printf("ifprefix: $$->contlist = %d\n", $$->contList);
 										patchlabel($1, $3+1);
 										patchlabel($3, nextquadlabel());
 																
@@ -899,7 +900,12 @@ loopstart:	{++loopcounter;}
 
 loopend:	{--loopcounter;}
 
-loopstmt: loopstart stmts loopend	{$$ = $2;}
+loopstmt: loopstart stmt loopend	{
+						
+						$$ = make_stmt();
+						$$ = $2;
+						printf("loopstmt: $$->contlist = %d\n", $$->contList);
+					}
 
 whilestart: WHILE {
 		    $$ = nextquadlabel();  
@@ -913,10 +919,16 @@ whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); } expr PARENTHCL
 	 				 }
 
 while: whilestart whilecond loopstmt {
+					
      					emit(JUMP,NULL,NULL,NULL,$1,0);
 					patchlabel($2,nextquadlabel());
-					patchlist($3->breakList,nextquadlabel());
-					patchlist($3->contList,$1);
+					
+					$$ = make_stmt(); 
+					$$->breakList = $3->breakList; printf("willestm: $$->breaklist = %d\n", $$->breakList);
+					$$->contList = $3->contList; printf("willestm: $$->contlist = %d\n", $$->contList);
+										
+					patchlist($3->breakList, nextquadlabel());
+					patchlist($3->contList, $1);
 
        				      }
 
@@ -937,11 +949,11 @@ forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} 
 								    	   patchlabel($6,$1->test);
 								    	   patchlabel($8,$2 + 1);
 
-								    	   patchlist($7->breakList,nextquadlabel());
-								    	   patchlist($7->contList,$2 + 1);
+								    	   patchlist($7->breakList, nextquadlabel());
+								    	   patchlist($7->contList, $2 + 1);
    								  	 }
 
-for: forpostfix 
+for: forpostfix {/*TODO: na gemisoume to stmt tou for!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/}
 
 
 /*forstmt: FOR PARENTHOPEN {currscope++; allocatescopes(currscope); } elist SEMICOLON expr SEMICOLON elist PARENTHCLOSE {currScope--;} stmt  ;*/
@@ -1354,7 +1366,8 @@ void pop_loopcounter(void){
 
 struct stmt_t* make_stmt(){
 	struct stmt_t* s = malloc(sizeof(struct stmt_t));
-	s->breakList = s->contList = 0;
+	s->breakList = 0;
+	s->contList = 0;
 	return s;
 }
 
@@ -1379,10 +1392,14 @@ int mergelist(int l1,int l2){
 }
 
 void patchlist(int list,unsigned label){
+	printf("entered patchlist\n");
 	while(list){
+		printf("now on quad: %d\n", list);
 		int next = quads[list].label;
+		printf("quads[%d].label = %u\n", list, label);
 		quads[list].label = label;
 		list = next;
+		printf("next quad: %d\n", next);
 	}
 
 }

@@ -6,13 +6,23 @@ while(a){
 	a = f(a);
 	
 	if(a) {
-		break;
+		br = 5;
+		break;		
 	}else{
-		break;
+		con = 5;
+		continue;
 	}
+	
+	while(x>9){
+		toni = 9;
+		//continue;
+		x++;
+		//break;
+	}
+	
+	//break;
+	//continue;
 
-	continue;
-	break;
 }
 
 kshru = 1;
