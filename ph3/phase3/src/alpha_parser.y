@@ -197,8 +197,8 @@ program: stmt
 
 stmt: expr SEMICOLON {$$ = make_stmt(); printf("expr semi\n");}
     | if {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("if: $$->contlist = %d\n", $$->contList);}
-    | while {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("while: $$->contlist = %d\n", $$->contList);}
-    | for {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("for: $$->contlist = %d raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n", $$->contList);}
+    | while {$$ = make_stmt();}
+    | for {$$ = make_stmt();}
     | returnstmt {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("returnstmt: $$->contlist = %d\n", $$->contList);}
     | break {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("brake: $$->contlist = %d\n", $$->contList);}
     | continue {$$ = make_stmt(); $$->breakList = $1->breakList; $$->contList = $1->contList; printf("continue: $$->contlist = %d\n", $$->contList);}
