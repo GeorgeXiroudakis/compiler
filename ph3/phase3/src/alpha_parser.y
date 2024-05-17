@@ -42,7 +42,7 @@ void allocateScopes(int scope);
 
 struct quad* quads = (struct quad*)0;
 unsigned total = 0;
-unsigned int currQuad = 0;
+unsigned int currQuad = 1;
 
 int tempcounter = 0;
 int scopeoffset = 0;
@@ -156,7 +156,7 @@ void printStack(int list);
 
 %type<idVal> funcname
 
-%type<unsignedVal> funcbody ifprefix elseprefix whilestart whilecond unfinjmp forretlabel
+%type<unsignedVal> funcbody ifprefix elseprefix whilestart whilecond unfinjmp forretlabel quadsave
 
 %type<entryNode> funcdef funcprefix
 
@@ -235,7 +235,7 @@ stmts: stmts stmt{
      |  
      ;
 
-
+quadsave: {$$ = nextquadlabel();}
 
 expr: assignexpr {	struct expr* temp;
     			$$ = $1;
@@ -258,20 +258,27 @@ expr: assignexpr {	struct expr* temp;
 				   }else if($3->sym->gramType != gr_integer && $3->sym->gramType != gr_constinteger && $3->sym->gramType != gr_constreal && $3->sym->gramType  != gr_real){
 						yyerror("Invalid type for compare expression");
 					}else{
-    					
-    					  emit(*$2,$1,$3,NULL,nextquadlabel() + 3,0);
-					  emit(ASSIGN,newexpr_constbool(0),NULL,$$,0,0);
-					  emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
-					  emit(ASSIGN,newexpr_constbool(1),NULL,$$,0,0);
+    					 
+    					  $$->truelist = newlist(nextquadlabel());
+    					  $$->falselist = newlist(nextquadlabel()+1);
+    					  
+    					  emit(*$2,$1,$3,NULL,0,0);
+					  emit(JUMP,NULL,NULL,NULL,0,0); 
+					  
 					}
 					 }
-    | expr boolop expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
-    				  /*if($1->sym->gramType != gr_boolean && $3->sym->gramType != gr_boolean){
-				  	yyerror("Invalid type for boolean expression");
-				  }else{
-				  	emit(*$2,$1,$3,$$,0,0);
-				  }*/
-				  emit(*$2, newexpr_constbool($1->sym->boolVal), newexpr_constbool($3->sym->boolVal), $$, 0, 0);
+    | expr boolop quadsave expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
+    				 
+    				  if(*$2 == OP_AND){
+    				  	patchlist($1->truelist, $3);
+    				  	$$->truelist = $4->truelist;
+    				  	$$->falselist = mergelist($1->falselist, $4->falselist);
+    				  } else if(*$2 == OP_OR){
+    				  	patchlist($1->falselist, $3);
+    				  	$$->truelist = mergelist($1->truelist, $4->truelist);
+    				  	$$->falselist = $4->falselist;
+    				  }
+				 //emit(*$2, newexpr_constbool($1->sym->boolVal), newexpr_constbool($3->sym->boolVal), $$, 0, 0);
 				 }
     | term { $$ = makeExpression($1->type,$1->sym,NULL,NULL); }
     ;
@@ -299,15 +306,12 @@ boolop:   AND{$$ = malloc(sizeof(enum iopcode)); *$$ = OP_AND;}
 term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
     | MINUS expr {checkArithmetic($2);
     		  $$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
-		  emit(UMINUS,
-		  $2,
-		  NULL,
-		  $$,
-		  0,
-		  $2->sym->value.varVal->line);
+		  emit(UMINUS,$2,NULL,$$,0,$2->sym->value.varVal->line);
 		 }
     | NOT expr {
     	       	$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
+		/*$$->truelist = $2->falselist;
+		$$->falselist = $2->truelist;*/
 		emit(OP_NOT,$2,NULL,$$,0,$2->sym->value.varVal->line);
 	       }
     | PLUSPLUS lvalue {checkArithmetic($2);
@@ -393,15 +397,40 @@ assignexpr: lvalue EQUAL expr {
 											else if($3->sym->gramType == gr_constinteger) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
 											else if($3->sym->gramType == gr_real) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
 											else if($3->sym->gramType == gr_constreal) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
-											else if($3->sym->gramType == gr_funcaddr){printf("tt\n"); $1->sym->grammarVal.funcPtr = $3->sym->grammarVal.funcPtr;}
+											else if($3->sym->gramType == gr_funcaddr) $1->sym->grammarVal.funcPtr = $3->sym->grammarVal.funcPtr;
 											$1->sym->boolVal = $3->sym->boolVal;
-											printf("%d\n", $3->sym->boolVal);
 											$1->type = $3->type;
-											emit(ASSIGN,$3, NULL, $1,0,0);
+				
+										/*	emit(ASSIGN,$3, NULL, $1,0,0);
 											$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
 											$$->sym = newtemp();
 											$$->sym->gramType = $3->sym->gramType;
-											emit(ASSIGN, $1, NULL, $$, 0, 0);
+										*/	
+											
+											if($3->type == boolexpr_e){
+												
+												$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
+												$$->sym = newtemp();
+												$$->sym->gramType = $3->sym->gramType;
+												
+												patchlist($3->truelist, nextquadlabel());
+												emit(ASSIGN,newexpr_constbool(1),NULL,$$,0,0);
+								  				emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
+								  				patchlist($3->falselist, nextquadlabel());
+								  				emit(ASSIGN,newexpr_constbool(0),NULL,$$,0,0);
+											 	emit(ASSIGN, $$, NULL, $1, 0, 0);
+											 	
+											 } else {
+											 	emit(ASSIGN, $3, NULL, $1, 0, 0);
+											 	$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
+												$$->sym = newtemp();
+												$$->sym->gramType = $3->sym->gramType;
+											 	emit(ASSIGN, $1, NULL, $$, 0, 0);
+											 }
+											
+											
+											
+											
 									   }
 								}
 							}
@@ -859,13 +888,24 @@ idlist: IDENTIFIER {SymbolTableEntry_t* res = scopeLookUp(currScope,$1);
       |
       ;
 
-ifprefix: IF PARENTHOPEN expr PARENTHCLOSE{
-												emit(IF_EQ, $3, newexpr_constbool(1), NULL, nextquadlabel() + 2, 0);
+ifprefix: IF PARENTHOPEN expr PARENTHCLOSE {
+						
+						if($3->type == boolexpr_e){
+							
+							patchlist($3->truelist, nextquadlabel());
+							emit(ASSIGN,newexpr_constbool(1),NULL,$3,0,0);
+			  				emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
+			  				patchlist($3->falselist, nextquadlabel());
+			  				emit(ASSIGN,newexpr_constbool(0),NULL,$3,0,0);
+						 	
+						 }
+						
+						emit(IF_EQ, $3, newexpr_constbool(1), NULL, nextquadlabel() + 2, 0);
+						
+						$$ = nextquadlabel();
 
-												$$ = nextquadlabel();
-
-												emit(JUMP, NULL, NULL, NULL, 0, 0);
-											}
+						emit(JUMP, NULL, NULL, NULL, 0, 0);
+					  }
 elseprefix: ELSE{
 						$$ = nextquadlabel();
 						emit(JUMP, NULL, NULL, NULL, 0, 0);
@@ -907,6 +947,17 @@ whilestart: WHILE {
 
 whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); } expr PARENTHCLOSE  {
 	 				   currScope--;
+	 				   
+	 				   if($3->type == boolexpr_e){
+							
+							patchlist($3->truelist, nextquadlabel());
+							emit(ASSIGN,newexpr_constbool(1),NULL,$3,0,0);
+			  				emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
+			  				patchlist($3->falselist, nextquadlabel());
+			  				emit(ASSIGN,newexpr_constbool(0),NULL,$3,0,0);
+						 	
+					   }
+	 				   
 					   emit(IF_EQ,$3,newexpr_constbool(1),NULL,nextquadlabel() + 2,0);
 					   $$ = nextquadlabel();
 					   emit(JUMP,NULL,NULL,NULL,0,0);
@@ -934,6 +985,18 @@ forprefix: FOR PARENTHOPEN {currScope++; allocateScopes(currScope); } elist {eli
 	 							       $$ = malloc(sizeof(struct for_labels));
 	 							       $$->test = $7;
 								       $$->enter = nextquadlabel();
+								       
+								       if($8->type == boolexpr_e){
+							
+										patchlist($8->truelist, nextquadlabel());
+										emit(ASSIGN,newexpr_constbool(1),NULL,$8,0,0);
+						  				emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
+						  				patchlist($8->falselist, nextquadlabel());
+						  				emit(ASSIGN,newexpr_constbool(0),NULL,$8,0,0);
+									 	
+									 }
+								       
+								       
 								       emit(IF_EQ,$8,newexpr_constbool(1),NULL,0,0);
 								      }
 forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} unfinjmp loopstmt unfinjmp {
@@ -1004,6 +1067,7 @@ int main(int argc, char **argv) {
     	ScopeLists[currScope]->head = NULL;
     	ScopeLists[currScope]->tail = NULL;
     	
+    	expand();
 
     	    	
 	if(argc > 2){
@@ -1095,7 +1159,7 @@ void restorecurrscopeoffset(unsigned n) {
 unsigned nextquadlabel(void){ return currQuad; }
 
 void patchlabel(unsigned quadNo, unsigned label){
-	assert(quadNo < currQuad);
+	assert(quadNo < currQuad + 1);
 	quads[quadNo].label = label;
 }
 
@@ -1123,7 +1187,7 @@ SymbolTableEntry_t* newtemp(){
 	
 
 void expand(){
-	assert(total == currQuad);
+	assert(total == currQuad - 1);
 	struct quad* p = malloc(NEW_SIZE);
 	if(quads){
 		memcpy(p,quads,CURR_SIZE);
@@ -1142,7 +1206,7 @@ void emit(
 	unsigned line
 	) {
 
-	if(currQuad == total){
+	if(currQuad - 1 == total){
 		expand();
 	}
 
@@ -1195,7 +1259,7 @@ void printQuads(void){
 	fprintf(file, "%-8s %-20s %-20s %-20s %-20s %-20s\n", "Quad#", "opcode", "result", "arg1", "arg2", "label");
 	fprintf(file,"-------------------------------------------------------------------------------------------------------------\n");
 	
-	for(int i =0; i < currQuad;i++){
+	for(int i =1; i < currQuad;i++){
 		
 
 		fprintf(file,"%-8d",i);
@@ -1286,6 +1350,9 @@ struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct e
 	newExpr->sym = sym;
 	newExpr->index = index;
 	newExpr->next = next;
+	
+	newExpr->truelist = 0;
+	newExpr->falselist = 0;
 
 	return newExpr;
 
@@ -1385,6 +1452,7 @@ int mergelist(int l1,int l2){
 	}else{
 		int i = l1;
 		while(quads[i].label){
+		printf("%u\n", quads[i].label);
 			i = quads[i].label;
 		}
 		quads[i].label = l2;

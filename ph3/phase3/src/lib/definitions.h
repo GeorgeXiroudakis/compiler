@@ -113,6 +113,9 @@ struct expr {
 	SymbolTableEntry_t* sym;
 	struct expr* index;
 	struct expr* next;
+	
+	int truelist;
+	int falselist;
 };
 
 struct quad {

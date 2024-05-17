@@ -1,0 +1,13 @@
+while(x>8 and c<10){
+	x = 9+5;
+	if(s==9){
+		continue;
+	} else if(x < 8 or z==0 and k<3){
+		g--;
+	} else {
+		break;
+	}
+	
+}
+
+print("hahah");
