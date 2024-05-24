@@ -159,3 +159,8 @@ struct lc_stack_t{
 struct stmt_t {
 	int breakList,contList;
 };
+
+struct scopeoffsetstack {
+	int 		offset;
+	struct scopeoffsetstack* next;
+};

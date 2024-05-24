@@ -59,6 +59,9 @@ unsigned scopeSpaceCounter = 1;
 struct lc_stack_t* lcs_top = 0;
 struct lc_stack_t* lcs_bottom = 0;
 
+struct scopeoffsetstack* sos_top = 0;
+struct scopeoffsetstack* sos_bottom = 0;
+
 int infunction = 0;
 
 #define loopcounter (lcs_top->counter)
@@ -103,6 +106,8 @@ int newlist(int  i);
 int mergelist(int l1,int l2);
 void patchlist(int list,unsigned label);
 void printStack(int list);
+void push_scopeoffset(unsigned currscopeoff);
+int  popandtop(void);
 
 %}
 
@@ -810,7 +815,7 @@ funcprefix: FUNCTION funcname	{	SymbolTableEntry_t* newFunc = makeFuncEntry($2, 
 	  				struct expr* newExpr = makeExpression(programfunc_e, newFunc, NULL, NULL);
 					$$->value.funcVal->qaddress = nextquadlabel();
 					emit(FUNCSTART, NULL, NULL, newExpr, 0,0);
-					//push ???? TODO
+					push_scopeoffset(currscopeoffset());
 					enterscopespace();
 					resetformalargsoffset();
 	  			}
@@ -826,8 +831,8 @@ funcbody: block {$$ = currscopeoffset(); exitscopespace();}
 funcdef: funcprefix funcargs funcblockstart funcbody funcblockend { 
        					exitscopespace();
        					$1->value.funcVal->totallocals = $4;
-					//TODO: int offset = popandtop
-					//restorecurrscopeoffset(offset);
+					int offset = popandtop();
+					restorecurrscopeoffset(offset);
 					$1->value.funcVal->arglist = $2;
 					$$ = $1;
 					struct expr* newExpr = makeExpression(programfunc_e, $1, NULL, NULL);
@@ -1477,6 +1482,46 @@ void printStack(int list){
 		int next = quads[list].label;
 		list = next;
 	}
+}
+
+void push_scopeoffset(unsigned currscopeoff){
+	struct scopeoffsetstack* new = malloc(sizeof(struct scopeoffsetstack));
+	new->offset = currscopeoff;
+	new->next = NULL;
+	if(sos_top == 0){
+		sos_top = new;
+		sos_bottom = new;
+	}else{
+		sos_top->next = new;
+		sos_top = new;
+	}
+	printf("pushed %u\n",currscopeoff);
+}
+
+int popandtop(void){
+	if(sos_top == 0){
+		return 0;
+	}
+
+	if(sos_top == sos_bottom){
+		//free(sos_top);
+		sos_top = 0;
+		sos_bottom = 0;
+		return 0;
+	}
+	
+	struct scopeoffsetstack* temp = sos_bottom;
+	struct scopeoffsetstack* prev = NULL;
+	
+	while(temp->next != NULL){
+		prev = temp;
+		temp = temp->next;
+	}
+	
+	sos_top = prev;
+	//free(temp);
+	return sos_top->offset;
+
 }
 
 
