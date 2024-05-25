@@ -122,6 +122,28 @@ struct userfunc*	userFuncs;
 unsigned		totalUserFuncs;
 struct avm_memcell stack[AVM_STACKSIZE];
 
+struct incomplete_jump* ij_head = (struct incomplete_jump*)0;
+unsigned		ij_total = 0;
+
+struct instruction* instructions = (struct instruction*)0;
+unsigned totalInstr = 0;
+unsigned int currInstr = 1;
+
+unsigned processedQuads = 0; /*TODO auksanetai sto telos ths generator !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+
+char** strArray = NULL;
+unsigned strCounter = 0;
+
+double* numArray = NULL;
+unsigned numCounter = 0;
+
+Function_t** funcArray = NULL;
+unsigned funcCounter = 0;
+
+char** libfuncArray = NULL;
+unsigned libfuncCounter = 0;
+
+
 static void avm_initstack(void);
 struct avm_table* avm_tablenew(void);
 void avm_tabledestroy(struct avm_table*);
@@ -136,12 +158,43 @@ void avm_tabledestroy(struct avm_table*);
 unsigned consts_newstring(char* s);
 unsigned consts_newnumber(double n);
 unsigned libfuncs_newused(char* s);
-unsigned userfuncs_newfunc(/*TODO SEE SYMBOL*/);
+unsigned userfuncs_newfunc(SymbolTableEntry_t* s);
 void make_operand(struct expr* e,struct vmarg* arg);
 void make_numberoperand(struct vmarg* arg, double val);
 void make_booloperand(struct  vmarg* arg, unsigned val);
 void make_revaloperand(struct  vmarg* arg);
 void add_incomplete_jump(unsigned int instrNo,unsigned iaddress);
+void patch_incomplete_jumps();
+void generate(enum vmopcode op,struct quad* q);
+unsigned nextinstructionlabel(void);
+void emit_instructions(struct instruction* i);
+unsigned currprocessedquad();
+
+void generate_ADD (struct quad* q);
+void generate_SUB (struct quad* q);
+void generate_MUL (struct quad* q);
+void generate_DIV (struct quad* q);
+void generate_MOD (struct quad* q); 
+void generate_NEWTABLE (struct quad* q);   
+void generate_TABLEGETELM (struct quad* q);  
+void generate_TABLESETELEM (struct quad* q);
+void generate_ASSIGN (struct quad* q);   
+void generate_NOP ();   
+void generate_JUMP (struct quad* q);  
+void generate_IF_EQ (struct quad* q);   
+void generate_IF_NOTEQ (struct quad* q);  
+void generate_IF_GREATER (struct quad* q);   
+void generate_IF_GREATEREQ (struct quad* q);  
+void generate_IF_LESS (struct quad* q);   
+void generate_IF_LESSEQ (struct quad* q);
+void generate_NOT (struct quad* q);
+void generate_OR (struct quad* q);
+void generate_PARAM (struct quad* q);  
+void generate_CALL (struct quad* q); 
+void generate_GETRETVAL (struct quad* q);
+void generate_FUNCTART (struct quad* q);
+void generate_FUNCEND (struct quad* q);
+void generate_RETURN (struct quad* q);
 
 
 %}
@@ -1563,6 +1616,10 @@ int popandtop(void){
 
 /* PHASE 4,5 */
 
+unsigned nextinstructionlabel(void){
+	return currInstr;
+}
+
 static void avm_initstack(void){
 	for(unsigned i = 0;i < AVM_STACKSIZE;++i){
 		AVM_WIPEOUT(stack[i]);
@@ -1581,9 +1638,9 @@ void avm_tabledecrefcounter(struct avm_table* t){
 	}
 }
 
-void avm_tablebucketslist(struct avm_table_bucket** p){
+void avm_tablebucketsinit(struct avm_table_bucket** p){
 	for(unsigned i = 0;i < AVM_TABLE_HASHSIZE;++i){
-		p[i] = (struct avm_table_bucket*) 0;
+		p[i] = (struct avm_table_bucket*)0;
 	}
 }
 
@@ -1602,8 +1659,8 @@ void avm_tablebucketsdestroy(struct avm_table_bucket** p){
 		for(struct avm_table_bucket* b = *p; b;){
 			struct avm_table_bucket* del = b;
 			b = b->next;
-			avm_memcellclear(&del->key);
-			avm_memcellclear(&del->value);
+			//avm_memcellclear(&del->key); TODO PHASE 5
+			//avm_memcellclear(&del->value);
 			free(del);
 		}
 		p[i] = (struct avm_table_bucket*) 0;
@@ -1615,6 +1672,99 @@ void avm_tabledestroy(struct avm_table* t){
 	avm_tablebucketsdestroy(t->strIndexed);
 	avm_tablebucketsdestroy(t->numIndexed);
 	free(t);
+}
+
+unsigned consts_newstring(char* str){
+	unsigned i = 0;
+	if(strArray == NULL){
+		strArray = malloc(sizeof(char*));
+		strArray[i] = strdup(str);
+	}else{
+		while(strArray[i] != NULL){
+			if(strcmp(strArray[i],str) == 0){
+				return i;
+			}
+			i++;
+		}
+		strArray = realloc(strArray,sizeof(char*) * (i + 1));
+		strArray[i] = strdup(str);
+	}
+	strCounter++;
+	return i;
+
+}
+
+unsigned consts_newnumber(double n){
+	unsigned i = 0;
+	if(numArray == NULL){
+		numArray = malloc(sizeof(double));
+		numArray[i] = n;
+	}else{
+		for(i = 0;i < numCounter;i++){	
+			if(numArray[i] == n){
+				return i;
+			}
+		}
+		numArray = realloc(numArray,sizeof(double) * (i + 1));
+		numArray[i] = n;
+	}
+	numCounter++;
+	return i;
+}
+
+unsigned userfuncs_newfunc(SymbolTableEntry_t* s){
+	unsigned i = 0;
+	if(funcArray == NULL){
+		funcArray = malloc(sizeof(Function_t*));
+		funcArray[i]->name = strdup(s->value.funcVal->name);
+		funcArray[i]->arglist = s->value.funcVal->arglist;
+		funcArray[i]->scope = s->value.funcVal->scope;
+		funcArray[i]->line = s->value.funcVal->line;
+		funcArray[i]->qaddress = s->value.funcVal->qaddress;
+		funcArray[i]->totallocals = s->value.funcVal->totallocals;
+		//TODO taddress
+	}else{
+		while(funcArray[i] != NULL){
+			if((strcmp(funcArray[i]->name,s->value.funcVal->name) == 0) && (funcArray[i]->qaddress == s->value.funcVal->qaddress)){
+				return i;
+			}
+			i++;
+		}
+		funcArray = realloc(funcArray,sizeof(Function_t*) * (i + 1));
+		funcArray[i]->name = strdup(s->value.funcVal->name);
+		funcArray[i]->arglist = s->value.funcVal->arglist;
+		funcArray[i]->scope = s->value.funcVal->scope;
+		funcArray[i]->line = s->value.funcVal->line;
+		funcArray[i]->qaddress = s->value.funcVal->qaddress;
+		funcArray[i]->totallocals = s->value.funcVal->totallocals;
+
+	}
+	funcCounter++;
+	return i;
+}
+
+unsigned libfuncs_newused(char* l){
+	if(libfuncArray == NULL){
+		libfuncArray = malloc(sizeof(char*) * 12);
+		for(unsigned i = 0; i < 12;i++){
+			libfuncArray[i] = NULL;
+		}
+		libfuncArray[0] = strdup(l);
+		libfuncCounter++;
+		return 0;
+	}else{
+		unsigned i = 0;
+		while(libfuncArray[i] != NULL){
+			if(strcmp(libfuncArray[i],l) == 0){
+				return i;
+			}
+			i++;
+		}
+
+		libfuncArray[i] = strdup(l); 
+		libfuncCounter++;
+		return i;
+	}
 }
 
 void make_operand(struct expr* e, struct vmarg* arg){
@@ -1686,6 +1836,114 @@ void make_booloperand(struct vmarg* arg, unsigned val){
 void make_retvaloperand(struct vmarg* arg){
 	arg->type = retval_a;
 }
+
+/*void generate_PARAM(struct quads* quad) { 
+	quad.taddress = nextinstructionlabel(); 
+ 	instruction t; 
+ 	t.opcode = pusharg; 
+ 	make_operand(quad.arg1, &t.arg1); 
+ 	emit(t); 
+}*/
+
+void add_incomplete_jump(unsigned instrNo, unsigned iaddress){
+	struct incomplete_jump* new = malloc(sizeof(struct incomplete_jump));
+	new->instrNo = instrNo;
+	new->iaddress = iaddress;
+	new->next = NULL;
+	
+	if(ij_head == 0){
+		ij_head = new;
+	}else{
+		struct incomplete_jump* temp = ij_head;
+		while(temp->next != 0){
+			temp = temp->next;
+		}
+		temp->next = new;
+	}
+
+	ij_total++;
+}
+
+unsigned currprocessedquad(){
+	return processedQuads;
+}
+
+void patch_incomplete_jumps(){
+	struct incomplete_jump* temp = ij_head;
+	while(temp != 0){
+		if(temp->iaddress == currQuad){
+			// TODO QUE???? instructions[temp->iaddress].result = ????;
+		}else{
+			instructions[temp->iaddress].result.val = quads[temp->iaddress].taddress;
+		}
+	}
+}
+
+void emit_instruction(struct instruction* i){
+	if(currInstr - 1 == totalInstr){
+		expand();
+	}
+
+	struct instruction* new = instructions + currInstr++;
+	new->opcode = i->opcode;
+	new->arg1 = i->arg1;
+	new->arg2 = i->arg2;
+	new->result = i->result;
+	new->srcLine = i->srcLine;
+}
+
+void generate(enum vmopcode op,struct quad* q){
+	struct instruction* t = malloc(sizeof(struct instruction));
+	t->opcode = op;
+	make_operand(q->arg1,&(t->arg1));
+	make_operand(q->arg2,&(t->arg2));
+	make_operand(q->result,&(t->result));
+	q->taddress = nextinstructionlabel();
+	emit_instruction(t);
+}
+
+void generate_relational(enum vmopcode op,struct quad* q){
+	struct instruction* t = malloc(sizeof(struct instruction));
+	t->opcode = op;
+	make_operand(q->arg1,&t->arg1);
+	make_operand(q->arg2,&t->arg2);
+
+	t->result.type = label_a;
+	if(q->label < currprocessedquad()){
+		t->result.val = quads[q->label].taddress;
+	}else{
+		add_incomplete_jump(nextinstructionlabel(),q->label);
+	}
+	q->taddress = nextinstructionlabel();
+	emit_instruction(t);
+}
+
+void generate_ADD (struct quad* q) { generate(add_v,q); }
+void generate_SUB (struct quad* q) { generate(sub_v,q); }
+void generate_MUL (struct quad* q) { generate(mul_v,q); }
+void generate_DIV (struct quad* q) { generate(div_v,q); }
+void generate_MOD (struct quad* q) { generate(mod_v,q); }
+void generate_NEWTABLE (struct quad* q) { generate(newtable_v,q); }
+void generate_TABLEGETELM (struct quad* q) { generate(tablegetelem_v,q); }
+void generate_TABLESETELEM (struct quad* q) { generate(tablesetelem_v,q); }
+void generate_ASSIGN (struct quad* q) { generate(assign_v,q); }
+void generate_NOP () {struct instruction* t; t->opcode = nop_v; emit_instruction(t);}   
+void generate_JUMP (struct quad* q) { generate_relational(jmp_v,q); }
+void generate_IF_EQ (struct quad* q) { generate_relational(jeq_v,q); }
+void generate_IF_NOTEQ (struct quad* q) { generate_relational(jne_v,q); }
+void generate_IF_GREATER (struct quad* q) { generate_relational(jgt_v,q); }
+void generate_IF_GREATEREQ (struct quad* q) { generate_relational(jge_v,q); }
+void generate_IF_LESS (struct quad* q) { generate_relational(jlt_v,q); }
+void generate_IF_LESSEQ (struct quad* q) { generate_relational(jle_v,q); }
+void generate_NOT (struct quad* q) { 
+}
+void generate_OR (struct quad* q) { generate(add_v,q); }
+void generate_PARAM (struct quad* q) { generate(add_v,q); }
+void generate_CALL (struct quad* q) { generate(add_v,q); }
+void generate_GETRETVAL (struct quad* q) { generate(add_v,q); }
+void generate_FUNCTART (struct quad* q) { generate(add_v,q); }
+void generate_FUNCEND (struct quad* q) { generate(add_v,q); }
+void generate_RETURN (struct quad* q) { generate(add_v,q); }
 
 /* END OF PHASE 4,5 */
 SymbolTableEntry_t* makeLibEntry(char *name){

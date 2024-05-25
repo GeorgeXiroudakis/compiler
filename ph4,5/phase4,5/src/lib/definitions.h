@@ -125,6 +125,7 @@ struct quad {
 	struct expr* arg2;
 	unsigned label;
 	unsigned line;
+	unsigned taddress;
 };
 
 struct exprNode {
@@ -175,7 +176,8 @@ enum vmopcode {
 	jle_v,		jge_v,		jlt_v,
 	jgt_v,		call_v,		pusharg_v,
 	funcenter_v,	funcexit_v,	newtable_v,
-	tablegetelem_v,	tablesetelem_v,	nop_v
+	tablegetelem_v,	tablesetelem_v,	nop_v,
+	jmp_v
 };
 
 enum vmarg_t {
@@ -259,5 +261,9 @@ struct incomplete_jump	{
 	unsigned iaddress;
 	struct incomplete_jump* next;
 };
+
+#define EXPAND_SIZE_INSTR 1024
+#define CURR_SIZE_INSTR (totalInstr * sizeof(struct instruction))
+#define NEW_SIZE_INSTR (EXPAND_SIZE_INSTR * sizeof(struct instruction) + CURR_SIZE_INSTR)
 
 
