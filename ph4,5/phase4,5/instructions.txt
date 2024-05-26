@@ -1,0 +1,14 @@
+Instruction# opcode               result               arg1                 arg2                 label               
+-------------------------------------------------------------------------------------------------------------
+1       assign               
+2       assign               
+3       assign               
+4       uminus               
+5       assign               
+6       assign               
+7       assign               
+8       assign               
+9       assign               
+10      assign               
+11      assign               
+12      add                  

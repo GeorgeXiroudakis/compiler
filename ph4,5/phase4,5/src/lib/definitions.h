@@ -30,6 +30,11 @@ typedef struct FunctArgNode{
 	struct FunctArgNode *next;
 }FunctArgNode_t;
 
+struct return_list {
+	unsigned retLabel;
+	struct	return_list* next;
+};
+
 typedef struct Function{
 	const char *name;
 	FunctArgNode_t *arglist;
@@ -37,6 +42,7 @@ typedef struct Function{
 	unsigned int line;
 	unsigned int qaddress;
 	unsigned int totallocals;
+	struct return_list* retList;
 }Function_t;
 
 enum SymbolType{
@@ -98,8 +104,8 @@ struct sym{
 };
 
 enum iopcode {
-	ASSIGN, ADD, SUB, MUL, DIV, MOD, UMINUS, OP_AND, OP_OR, OP_NOT, IF_EQ, IF_NOTEQ, IF_LESSEQ, IF_GREATEREQ, IF_LESS, IF_GREATER,
-	CALL, PARAM, RET, GETRETVAL, FUNCSTART, FUNCEND, TABLECREATE, TABLEGETELEM, TABLESETELEM, JUMP
+	ASSIGN, ADD, SUB, MUL, DIV, MOD, UMINUS, IF_EQ, IF_NOTEQ, IF_LESSEQ, IF_GREATEREQ, IF_LESS, IF_GREATER,
+	CALL, PARAM, RET, GETRETVAL, FUNCSTART, FUNCEND, TABLECREATE, TABLEGETELEM, TABLESETELEM, JUMP, OP_AND, OP_OR, OP_NOT
 };
 
 enum expr_en {
@@ -262,6 +268,11 @@ struct incomplete_jump	{
 	unsigned instrNo;
 	unsigned iaddress;
 	struct incomplete_jump* next;
+};
+
+struct func_stack {
+	Function_t* func;
+	struct func_stack* next;
 };
 
 #define EXPAND_SIZE_INSTR 1024

@@ -143,6 +143,7 @@ unsigned funcCounter = 0;
 char** libfuncArray = NULL;
 unsigned libfuncCounter = 0;
 
+struct func_stack* head = NULL;
 
 static void avm_initstack(void);
 struct avm_table* avm_tablenew(void);
@@ -167,8 +168,10 @@ void add_incomplete_jump(unsigned int instrNo,unsigned iaddress);
 void patch_incomplete_jumps();
 void generate(enum vmopcode op,struct quad* q);
 unsigned nextinstructionlabel(void);
-void emit_instructions(struct instruction* i);
+void emit_instruction(struct instruction* i);
 unsigned currprocessedquad();
+void append_retList(struct return_list* ret,unsigned label);
+void backpatch_retlist(struct return_list* ret,unsigned label);
 
 void generate_ADD (struct quad* q);
 void generate_SUB (struct quad* q);
@@ -176,10 +179,10 @@ void generate_MUL (struct quad* q);
 void generate_DIV (struct quad* q);
 void generate_MOD (struct quad* q); 
 void generate_NEWTABLE (struct quad* q);   
-void generate_TABLEGETELM (struct quad* q);  
+void generate_TABLEGETELEM (struct quad* q);  
 void generate_TABLESETELEM (struct quad* q);
 void generate_ASSIGN (struct quad* q);   
-void generate_NOP ();   
+void generate_NOP (struct quad* q);   
 void generate_JUMP (struct quad* q);  
 void generate_IF_EQ (struct quad* q);   
 void generate_IF_NOTEQ (struct quad* q);  
@@ -192,10 +195,44 @@ void generate_OR (struct quad* q);
 void generate_PARAM (struct quad* q);  
 void generate_CALL (struct quad* q); 
 void generate_GETRETVAL (struct quad* q);
-void generate_FUNCTART (struct quad* q);
+void generate_FUNCSTART (struct quad* q);
 void generate_FUNCEND (struct quad* q);
 void generate_RETURN (struct quad* q);
+void generate_UMINUS(struct quad* q);
 
+void push_funcstack(Function_t* f);
+Function_t* pop_funcstack(void);
+Function_t* top_funcstack(void);
+
+typedef void (*generator_func_t)(struct quad*);
+
+generator_func_t generators[] = {
+	generate_ASSIGN,
+	generate_ADD,
+	generate_SUB,
+	generate_MUL,
+	generate_DIV,
+	generate_MOD,
+	generate_UMINUS,
+	generate_IF_EQ,
+	generate_IF_NOTEQ,
+	generate_IF_LESSEQ,
+	generate_IF_GREATEREQ,
+	generate_IF_LESS,
+	generate_IF_GREATER,
+	generate_CALL,
+	generate_PARAM,
+	generate_RETURN,
+	generate_GETRETVAL,
+	generate_FUNCSTART,
+	generate_FUNCEND,
+	generate_NEWTABLE,
+	generate_TABLEGETELEM,
+	generate_TABLESETELEM,
+	generate_JUMP
+};
+
+void generate_instructions(void);
 
 %}
 
@@ -1165,6 +1202,8 @@ int main(int argc, char **argv) {
     	ScopeLists[currScope]->tail = NULL;
     	
     	expand();
+	expand_instructions();
+	
 
     	    	
 	if(argc > 2){
@@ -1202,7 +1241,9 @@ int main(int argc, char **argv) {
 
 	printScopeLists();
 	printQuads();
-
+	
+	generate_instructions();
+	printInstructions();
     	return 0;
 }
 
@@ -1616,6 +1657,18 @@ int popandtop(void){
 
 /* PHASE 4,5 */
 
+void expand_instructions(){
+	assert(totalInstr == currInstr - 1);
+	struct instructions* i = malloc(NEW_SIZE_INSTR);
+	if(quads){
+		memcpy(i,instructions,CURR_SIZE_INSTR);
+		free(instructions);
+	}
+	instructions = i;
+	totalInstr += EXPAND_SIZE_INSTR;
+
+}
+
 unsigned nextinstructionlabel(void){
 	return currInstr;
 }
@@ -1673,6 +1726,55 @@ void avm_tabledestroy(struct avm_table* t){
 	avm_tablebucketsdestroy(t->numIndexed);
 	free(t);
 }
+
+void push_funcstack(Function_t* func){
+	
+	struct func_stack* new = malloc(sizeof(struct func_stack));
+	new->func = func;
+	new->next = NULL;
+	if(head == NULL){
+		head = new;
+	}else{
+		struct func_stack* temp = head;
+		while(temp->next != NULL){
+			temp = temp->next;
+		}
+		temp->next = new;
+	}	
+
+}
+
+Function_t* pop_funcstack(void){
+	if(head == NULL){
+		return NULL;
+	}else{
+		struct func_stack* temp = head;
+		struct func_stack* prev = NULL;
+		while(temp->next != NULL){
+			prev = temp;
+			temp = temp->next;
+		}
+		if(prev != NULL){
+			prev->next = NULL;
+			head = NULL;
+		}
+		return temp->func;
+	}
+}
+
+Function_t* top_funcstack(void){
+	if(head == NULL){
+		return NULL;
+	}else{
+		struct func_stack* temp = head;
+		while(temp->next != NULL){
+			temp = temp->next;
+		}
+		return temp;
+	}
+}
+
+
 
 unsigned consts_newstring(char* str){
 	unsigned i = 0;
@@ -1768,8 +1870,12 @@ unsigned libfuncs_newused(char* l){
 }
 
 void make_operand(struct expr* e, struct vmarg* arg){
+	if(e == NULL){
+		return;
+	}
 	switch(e->type){
 		case var_e:
+		case assignexpr_e:
 		case tableitem_e:
 		case arithexpr_e:
 		case boolexpr_e:
@@ -1798,7 +1904,7 @@ void make_operand(struct expr* e, struct vmarg* arg){
 
 		case constnum_e: {
 			arg->val = consts_newnumber(e->sym->grammarVal.intNum); //TODO check dis
-			arg->type = number_a;
+			arg->type = number_a; break;
 		}
 		
 		case nil_e: {
@@ -1823,6 +1929,37 @@ void make_operand(struct expr* e, struct vmarg* arg){
 	}
 }
 
+void reset_operand(struct vmarg* arg){
+	make_operand(NULL,&arg);
+}
+
+void append_retList(struct return_list* ret,unsigned label){
+	struct return_list* new = malloc(sizeof(struct return_list));
+	new->retLabel = label;
+	new->next = NULL;
+	if(ret == NULL){
+		ret = new;
+	}else{
+		struct return_list* temp = ret;
+		while(temp->next != NULL){
+			temp = temp->next;
+		}
+		temp->next = new;
+	}
+}
+
+void backpatch_retlist(struct return_list* ret,unsigned label){
+	struct return_list* temp = ret;
+	while(temp != NULL){
+		if(instructions[temp->retLabel].result.type == label_a){
+			instructions[temp->retLabel].result.val = label;
+		}else{
+			yyerror("Label doesn't exist during backpatching the return list ");
+		}
+		temp = temp->next;
+	}
+}
+
 void make_numberoperand(struct vmarg* arg, double val){
 	arg->val = consts_newnumber(val);
 	arg->type = number_a;
@@ -1837,13 +1974,6 @@ void make_retvaloperand(struct vmarg* arg){
 	arg->type = retval_a;
 }
 
-/*void generate_PARAM(struct quads* quad) { 
-	quad.taddress = nextinstructionlabel(); 
- 	instruction t; 
- 	t.opcode = pusharg; 
- 	make_operand(quad.arg1, &t.arg1); 
- 	emit(t); 
-}*/
 
 void add_incomplete_jump(unsigned instrNo, unsigned iaddress){
 	struct incomplete_jump* new = malloc(sizeof(struct incomplete_jump));
@@ -1872,7 +2002,7 @@ void patch_incomplete_jumps(){
 	struct incomplete_jump* temp = ij_head;
 	while(temp != 0){
 		if(temp->iaddress == currQuad){
-			// TODO QUE???? instructions[temp->iaddress].result = ????;
+			instructions[temp->iaddress].result.val = totalInstr;
 		}else{
 			instructions[temp->iaddress].result.val = quads[temp->iaddress].taddress;
 		}
@@ -1881,7 +2011,7 @@ void patch_incomplete_jumps(){
 
 void emit_instruction(struct instruction* i){
 	if(currInstr - 1 == totalInstr){
-		expand();
+		expand_instructions();
 	}
 
 	struct instruction* new = instructions + currInstr++;
@@ -1890,6 +2020,7 @@ void emit_instruction(struct instruction* i){
 	new->arg2 = i->arg2;
 	new->result = i->result;
 	new->srcLine = i->srcLine;
+	totalInstr++;
 }
 
 void generate(enum vmopcode op,struct quad* q){
@@ -1924,10 +2055,10 @@ void generate_MUL (struct quad* q) { generate(mul_v,q); }
 void generate_DIV (struct quad* q) { generate(div_v,q); }
 void generate_MOD (struct quad* q) { generate(mod_v,q); }
 void generate_NEWTABLE (struct quad* q) { generate(newtable_v,q); }
-void generate_TABLEGETELM (struct quad* q) { generate(tablegetelem_v,q); }
+void generate_TABLEGETELEM (struct quad* q) { generate(tablegetelem_v,q); }
 void generate_TABLESETELEM (struct quad* q) { generate(tablesetelem_v,q); }
 void generate_ASSIGN (struct quad* q) { generate(assign_v,q); }
-void generate_NOP () {struct instruction* t; t->opcode = nop_v; emit_instruction(t);}   
+void generate_NOP (struct quad* q) {struct instruction* t; t->opcode = nop_v; emit_instruction(t);}   
 void generate_JUMP (struct quad* q) { generate_relational(jmp_v,q); }
 void generate_IF_EQ (struct quad* q) { generate_relational(jeq_v,q); }
 void generate_IF_NOTEQ (struct quad* q) { generate_relational(jne_v,q); }
@@ -1989,14 +2120,14 @@ void generate_GETRETVAL (struct quad* q) {
 	emit_instruction(t);
 }
 
-void generate_FUNCTART (struct quad* q) { 
+void generate_FUNCSTART (struct quad* q) { 
 	SymbolTableEntry_t* f;
 	f = q->result->sym;
 	f->taddress = nextinstructionlabel();
 	q->taddress = nextinstructionlabel();
 	userfuncs_newfunc(f);
 
-	//push?
+	push_funcstack(f->value.funcVal);
 	struct instruction* t;
 	t->opcode = funcenter_v;
 	make_operand(q->result,&t->result);
@@ -2004,16 +2135,136 @@ void generate_FUNCTART (struct quad* q) {
 
 }
 void generate_FUNCEND (struct quad* q) { 
-	SymbolTableEntry_t* f;
-	//f = pop???
-	//backpatch
+	Function_t* f;
+	f = pop_funcstack();
+	backpatch_retlist(f->retList,nextinstructionlabel());
 	q->taddress = nextinstructionlabel();
 	struct instruction* t;
 	t->opcode = funcexit_v;
 	make_operand(q->result,&t->result);
 	emit_instruction(t);
 }
-void generate_RETURN (struct quad* q) { generate(add_v,q); }
+void generate_RETURN (struct quad* q) { 
+	q->taddress = nextinstructionlabel();
+	struct instruction* t;
+	t->opcode = assign_v;
+	make_retvaloperand(&t->result);
+	make_operand(q->arg1,&t->arg1);
+	emit_instruction(t);
+	Function_t* f = top_funcstack();
+	append_retList(f->retList,nextinstructionlabel());
+	
+	t->opcode = jmp_v;
+	reset_operand(&t->arg1);
+	reset_operand(&t->arg2);
+	t->result.type = label_a;
+	emit_instruction(t);
+}
+
+void generate_UMINUS(struct quad* q){ generate(uminus_v,q); }
+
+void generate_instructions(void){
+	for(unsigned i = 0;i < currQuad;i++){
+		(*generators[quads[i].op])(quads + i);
+	}
+}
+
+void printInstructions(){
+	FILE* file;
+	file = fopen("instructions.txt","w");
+	
+	if(file == NULL){
+		yyerror("Couldnt make instructions.txt file");
+	}
+
+	fprintf(file, "%-8s %-20s %-20s %-20s %-20s %-20s\n", "Instruction#", "opcode", "result", "arg1", "arg2", "label");
+	fprintf(file,"-------------------------------------------------------------------------------------------------------------\n");
+	
+	for(int i =1; i < currInstr;i++){
+		
+
+		fprintf(file,"%-8d",i);
+		/*:))))))))))*/
+		switch (instructions[i].opcode){
+				case assign_v:
+					fprintf(file,"%-20s ", "assign");break;
+				case add_v:
+					fprintf(file,"%-20s ","add");break;
+				case sub_v:
+					fprintf(file,"%-20s ","sub");break;
+				case mul_v:
+					fprintf(file,"%-20s ","mul");break;
+				case div_v:
+					fprintf(file,"%-20s ","div");break;
+				case mod_v:
+					fprintf(file,"%-20s ","mod");break;
+				case uminus_v:
+					fprintf(file,"%-20s ","uminus");break;
+				case and_v:
+					fprintf(file,"%-20s ","and");break;
+				case or_v:
+					fprintf(file,"%-20s ","or");break;
+				case not_v:
+					fprintf(file,"%-20s ","not");break;
+				case jeq_v:
+					fprintf(file,"%-20s ","if_eq");break;
+				case jne_v:
+					fprintf(file,"%-20s ","if_noteq");break;
+				case jle_v:
+					fprintf(file,"%-20s ","if_lesseq ");break;
+				case jge_v:
+					fprintf(file,"%-20s ","if_greatereq");break;
+				case jlt_v:
+					fprintf(file,"%-20s ","if_less");break;
+				case jgt_v:
+					fprintf(file,"%-20s ","if_greater");break;
+				case call_v:
+					fprintf(file,"%-20s ","call");break;
+				case pusharg_v:
+					fprintf(file,"%-20s ","pusharg");break;
+				/*case ret_v:
+					fprintf(file,"%-20s ","ret");break;
+				case GETRETVAL:
+					fprintf(file,"%-20s ","getretval");break;*/
+				case funcenter_v:
+					fprintf(file,"%-20s ","funcstart");break;
+				case funcexit_v:
+					fprintf(file,"%-20s ","funcend");break;
+				case newtable_v:
+					fprintf(file,"%-20s ","tablecreate");break;
+				case tablegetelem_v:
+					fprintf(file,"%-20s ","tablegetelem");break;
+				case tablesetelem_v:
+					fprintf(file,"%-20s ","tablesetelem");break;
+				case jmp_v:
+					fprintf(file,"%-20s ","jump");break;
+				default:
+					fprintf(file,"%-20s ","unknownopcode");break;
+			}
+
+
+		
+		/*if(instructions[i].result == NULL) fprintf(file,"%-20s", "-");
+		else fprintf(file, "%-20s", instructions[i].result);
+
+		if(instructions[i].arg1 == NULL) fprintf(file, "%-20s", "-");
+		else fprintf(file, "%-20s", instructions[i].arg1);
+
+		if(instructions[i].arg2 == NULL) fprintf(file, "%-20s", "-");
+		else fprintf(file, "%-20s", instructions[i].arg2);
+		
+		if(instructions[i].label == 0){
+			fprintf(file,"%-20s\n", "-");
+		}else{
+			fprintf(file,"%d\n",quads[i].label);
+		}*/
+		fprintf(file,"  u\n");
+	}
+	
+	fclose(file);
+
+}
+
 
 /* END OF PHASE 4,5 */
 SymbolTableEntry_t* makeLibEntry(char *name){
@@ -2026,6 +2277,9 @@ SymbolTableEntry_t* makeLibEntry(char *name){
 	f->name = name;
 	f->scope = currScope;
 	f->line = 0;
+	f->arglist = NULL;
+	f->qaddress = 0;
+	f->retList = NULL;
 
     	entry = malloc(sizeof(SymbolTableEntry_t));
 
@@ -2098,6 +2352,8 @@ SymbolTableEntry_t* makeFuncEntry(char *name,enum SymbolType type){
 	f->scope = currScope;
 	f->line = yylineno;
 	f->arglist = NULL;
+	f->qaddress = 0;
+	f->retList = NULL;
 
 	f->arglist = makeFuncArgList(f->arglist,currScope);
 
