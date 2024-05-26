@@ -1935,14 +1935,84 @@ void generate_IF_GREATER (struct quad* q) { generate_relational(jgt_v,q); }
 void generate_IF_GREATEREQ (struct quad* q) { generate_relational(jge_v,q); }
 void generate_IF_LESS (struct quad* q) { generate_relational(jlt_v,q); }
 void generate_IF_LESSEQ (struct quad* q) { generate_relational(jle_v,q); }
-void generate_NOT (struct quad* q) { 
-}
+
+
+/*void generate_NOT (struct quad* q) { 
+	q.taddress = nextinstructionlabel();
+	struct instruction* t;
+
+	t.opcode = jeg;
+	make_operand(q.arg1,&t.arg1);
+	make_booloperand(&t.arg2,false);
+	t.result.type = label_a;
+	t.result.value = nextinstructionlabel() + 3;
+	emit_instruction(t);
+
+	t.opcode = assign;
+	make_booloperand(&t.arg1,false);
+	reset_operand(&t.arg2);
+	make_operand(q.result,&t.result);
+	emit_instructions(t);
+
+	t.opcode = jump;
+	reset_operand(&t.arg1);
+	reset_operand(&t.arg2);
+	
+
+}*/
+
+
 void generate_OR (struct quad* q) { generate(add_v,q); }
-void generate_PARAM (struct quad* q) { generate(add_v,q); }
-void generate_CALL (struct quad* q) { generate(add_v,q); }
-void generate_GETRETVAL (struct quad* q) { generate(add_v,q); }
-void generate_FUNCTART (struct quad* q) { generate(add_v,q); }
-void generate_FUNCEND (struct quad* q) { generate(add_v,q); }
+
+
+void generate_PARAM (struct quad* q) { 
+	q->taddress = nextinstructionlabel();
+	struct instruction* t;
+	t->opcode = pusharg_v;
+	make_operand(q->arg1,&t->arg1);
+	emit_instruction(t);
+}
+
+void generate_CALL (struct quad* q) { 
+	q->taddress = nextinstructionlabel();
+	struct instruction* t;
+	t->opcode = call_v;
+	make_operand(q->arg1,&t->arg1);
+	emit_instruction(t);
+}
+
+void generate_GETRETVAL (struct quad* q) { 
+	q->taddress = nextinstructionlabel();
+	struct instruction* t;
+	t->opcode = assign_v;
+	make_operand(q->result,&t->result);
+	emit_instruction(t);
+}
+
+void generate_FUNCTART (struct quad* q) { 
+	SymbolTableEntry_t* f;
+	f = q->result->sym;
+	f->taddress = nextinstructionlabel();
+	q->taddress = nextinstructionlabel();
+	userfuncs_newfunc(f);
+
+	//push?
+	struct instruction* t;
+	t->opcode = funcenter_v;
+	make_operand(q->result,&t->result);
+	emit_instruction(t);
+
+}
+void generate_FUNCEND (struct quad* q) { 
+	SymbolTableEntry_t* f;
+	//f = pop???
+	//backpatch
+	q->taddress = nextinstructionlabel();
+	struct instruction* t;
+	t->opcode = funcexit_v;
+	make_operand(q->result,&t->result);
+	emit_instruction(t);
+}
 void generate_RETURN (struct quad* q) { generate(add_v,q); }
 
 /* END OF PHASE 4,5 */

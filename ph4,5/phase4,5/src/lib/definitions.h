@@ -67,6 +67,8 @@ typedef struct SymbolTableEntry{
 
 	short int boolVal;
 
+	unsigned taddress;
+
 } SymbolTableEntry_t;
 
 typedef struct scopeListNode{
