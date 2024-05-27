@@ -1,7 +1,0 @@
-Instruction# opcode                    result               result value         arg1                 arg1 value           arg2                 arg2 value          
--------------------------------------------------------------------------------------------------------------
-1       assign                    uninitialized_a     uninitialized_a     uninitialized_a       
-2       funcstart                 userfunc_a          0                    label_a             0                    label_a             0                      
-3       assign                    number_a            0                    number_a            0                    uninitialized_a       
-4       assign                    local_a             0                    number_a            0                    uninitialized_a       
-5       funcend                   userfunc_a          0                    uninitialized_a     uninitialized_a       

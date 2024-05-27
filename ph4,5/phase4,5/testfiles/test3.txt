@@ -1,0 +1,10 @@
+x = 10;
+function f(x,y){
+	return (x*y)/5;
+}
+
+/*
+for(i = 0; i < x; i++){
+	print(f(i,x));
+}
+*/

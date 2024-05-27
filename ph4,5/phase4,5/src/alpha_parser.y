@@ -129,7 +129,7 @@ struct instruction* instructions = (struct instruction*)0;
 unsigned totalInstr = 0;
 unsigned int currInstr = 1;
 
-unsigned processedQuads = 0; /*TODO auksanetai sto telos ths generator !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+unsigned processedQuads = 0; 
 
 char** strArray = NULL;
 unsigned strCounter = 0;
@@ -597,14 +597,15 @@ lvalue: IDENTIFIER		{
 										}
 									}
 									if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
-									else if(res->gramType == gr_string) $$ = makeExpression(conststring_e,res,NULL,NULL);
+									else if(res->gramType == gr_string) $$ = makeExpression(var_e,res,NULL,NULL);
 									else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
 									else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
-									else if(res->gramType == gr_integer) $$ = makeExpression(constnum_e,res,NULL,NULL);
+									else if(res->gramType == gr_integer) $$ = makeExpression(var_e,res,NULL,NULL);
 									else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
-									else if(res->gramType == gr_real) $$ = makeExpression(constnum_e,res,NULL,NULL);
+									else if(res->gramType == gr_real) $$ = makeExpression(var_e,res,NULL,NULL);
 									else if(res->gramType == gr_constreal) $$ = makeExpression(constnum_e,res,NULL,NULL);
 									else if(res->gramType == gr_funcaddr) $$ = makeExpression(programfunc_e,res,NULL,NULL);
+									else $$ = makeExpression(var_e, res,NULL,NULL);
 								}
 								else{ (currScope == 0) ? (res = makeVariableEntry($1,global)) : (res = makeVariableEntry($1,local));
 									$$ = makeExpression(var_e,res,NULL,NULL);
@@ -962,6 +963,7 @@ funcdef: funcprefix funcargs funcblockstart funcbody funcblockend {
 					int offset = popandtop();
 					restorecurrscopeoffset(offset);
 					$1->value.funcVal->arglist = $2;
+					printf("%s\n", $1->value.funcVal->name);
 					$$ = $1;
 					struct expr* newExpr = makeExpression(programfunc_e, $1, NULL, NULL);
 					emit(FUNCEND, NULL, NULL, newExpr, 0, 0);
@@ -1022,7 +1024,7 @@ idlist: IDENTIFIER {SymbolTableEntry_t* res = scopeLookUp(currScope,$1);
       				 if(res != NULL){
 				 	yyerror("Same formal argument given ");
 				 }
-				 makeVariableEntry($3,formal);}
+				 makeVariableEntry($3, formal);}
       |
       ;
 
@@ -1245,7 +1247,9 @@ int main(int argc, char **argv) {
 	printScopeLists();
 	printQuads();
 	
+	
 	generate_instructions();
+	//printQuads();
 	printInstructions();
 	
 	printValArray();
@@ -1629,7 +1633,6 @@ void push_scopeoffset(unsigned currscopeoff){
 		sos_top->next = new;
 		sos_top = new;
 	}
-	printf("pushed %u\n",currscopeoff);
 }
 
 int popandtop(void){
@@ -1768,15 +1771,17 @@ Function_t* pop_funcstack(void){
 }
 
 Function_t* top_funcstack(void){
-	if(head == NULL){
+	/*if(head == NULL){
 		return NULL;
 	}else{
 		struct func_stack* temp = head;
 		while(temp->next != NULL){
 			temp = temp->next;
 		}
-		return temp;
-	}
+		return temp->func;
+	}*/
+	
+	return head->func;
 }
 
 
@@ -2139,6 +2144,9 @@ void generate_FUNCSTART (struct quad* q) {
 	struct instruction* t;
 	t->opcode = funcenter_v;
 	make_operand(q->result,&t->result);
+	make_operand(q->arg1,&t->arg1);
+	make_operand(q->arg2,&t->arg2);
+	
 	emit_instruction(t);
 
 }
@@ -2174,9 +2182,12 @@ void generate_RETURN (struct quad* q) {
 void generate_UMINUS(struct quad* q){ generate(uminus_v,q); }
 
 void generate_instructions(void){
-	for(unsigned i = 0;i < currQuad;i++){
+	for(unsigned i = 1;i < currQuad;i++){
+		printf("%d\n", (quads + i)->op);
 		(*generators[quads[i].op])(quads + i);
 	}
+	
+	processedQuads++;
 }
 
 
@@ -2297,18 +2308,23 @@ void printInstructions(){
 			printEnum(file,&(instructions[i].result));
 			if(instructions[i].result.type != uninitialized_a){
 				fprintf(file,"%-20u ",instructions[i].result.val);
+			}else{
+				fprintf(file,"%-20s ", "-");
 			}
 			
 			printEnum(file,&(instructions[i].arg1));
 			if(instructions[i].arg1.type != uninitialized_a){
-				fprintf(file,"%-20u ",instructions[i].arg1.val);
+				fprintf(file,"%-20u ",instructions[i].arg1.val);	
+			}else{
+				fprintf(file,"%-20s ", "-");
 			}
 
 			printEnum(file,&(instructions[i].arg2));
 			if(instructions[i].arg2.type != uninitialized_a){
 				fprintf(file,"%-20u ",instructions[i].arg2.val);
+			}else{
+				fprintf(file,"%-20s ", "-");
 			}
-
 			
 
 
