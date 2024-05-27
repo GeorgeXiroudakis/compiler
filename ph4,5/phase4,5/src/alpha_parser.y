@@ -172,6 +172,9 @@ void emit_instruction(struct instruction* i);
 unsigned currprocessedquad();
 void append_retList(struct return_list* ret,unsigned label);
 void backpatch_retlist(struct return_list* ret,unsigned label);
+void printInstructions();
+void printEnum(FILE* file,struct vmarg* arg);
+void printValArray();
 
 void generate_ADD (struct quad* q);
 void generate_SUB (struct quad* q);
@@ -536,7 +539,7 @@ assignexpr: lvalue EQUAL expr {
 											else if($3->sym->gramType == gr_constreal) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
 											else if($3->sym->gramType == gr_funcaddr) $1->sym->grammarVal.funcPtr = $3->sym->grammarVal.funcPtr;
 											$1->sym->boolVal = $3->sym->boolVal;
-											$1->type = $3->type;
+											//$1->type = $3->type;
 				
 										/*	emit(ASSIGN,$3, NULL, $1,0,0);
 											$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
@@ -1244,6 +1247,8 @@ int main(int argc, char **argv) {
 	
 	generate_instructions();
 	printInstructions();
+	
+	printValArray();
     	return 0;
 }
 
@@ -1818,6 +1823,7 @@ unsigned userfuncs_newfunc(SymbolTableEntry_t* s){
 	unsigned i = 0;
 	if(funcArray == NULL){
 		funcArray = malloc(sizeof(Function_t*));
+		funcArray[i] = malloc(sizeof(Function_t));
 		funcArray[i]->name = strdup(s->value.funcVal->name);
 		funcArray[i]->arglist = s->value.funcVal->arglist;
 		funcArray[i]->scope = s->value.funcVal->scope;
@@ -1871,6 +1877,8 @@ unsigned libfuncs_newused(char* l){
 
 void make_operand(struct expr* e, struct vmarg* arg){
 	if(e == NULL){
+		arg->type = uninitialized_a;
+		arg->val = 0;
 		return;
 	}
 	switch(e->type){
@@ -2142,6 +2150,8 @@ void generate_FUNCEND (struct quad* q) {
 	struct instruction* t;
 	t->opcode = funcexit_v;
 	make_operand(q->result,&t->result);
+	make_operand(q->arg1,&t->arg1);
+	make_operand(q->arg2,&t->arg2);
 	emit_instruction(t);
 }
 void generate_RETURN (struct quad* q) { 
@@ -2169,6 +2179,48 @@ void generate_instructions(void){
 	}
 }
 
+
+void printEnum(FILE* file,struct vmarg* arg){
+	
+	if(arg == NULL){
+		fprintf(file,"%-20s","-");
+		return;
+	}
+
+
+	switch(arg->type){
+		case label_a:	fprintf(file,"%-20s","label_a");
+			break;
+		case global_a:	fprintf(file,"%-20s","global_a");
+			break;
+		case formal_a:	fprintf(file,"%-20s","formal_a");
+			break;
+		case local_a:	fprintf(file,"%-20s","local_a");
+			break;
+		case number_a:	fprintf(file,"%-20s","number_a");
+			break;
+		case string_a:	fprintf(file,"%-20s","string_a");
+			break;
+		case bool_a:	fprintf(file,"%-20s","bool_a");
+			break;
+		case nil_a:	fprintf(file,"%-20s","nil_a");
+			break;
+		case userfunc_a: fprintf(file,"%-20s","userfunc_a");
+			break;
+		case libfunc_a:	fprintf(file,"%-20s","libfunc_a");
+			break;
+		case retval_a:	fprintf(file,"%-20s","retval_a"); 
+			break;
+		
+		case uninitialized_a:	fprintf(file,"%-20s","uninitialized_a");
+			break;
+
+		default:
+			assert(0);
+	}
+
+}
+
 void printInstructions(){
 	FILE* file;
 	file = fopen("instructions.txt","w");
@@ -2177,91 +2229,122 @@ void printInstructions(){
 		yyerror("Couldnt make instructions.txt file");
 	}
 
-	fprintf(file, "%-8s %-20s %-20s %-20s %-20s %-20s\n", "Instruction#", "opcode", "result", "arg1", "arg2", "label");
+	fprintf(file, "%-8s %-25s %-20s %-20s %-20s %-20s %-20s %-20s\n", "Instruction#", "opcode", "result", "result value", "arg1", "arg1 value", "arg2", "arg2 value");
 	fprintf(file,"-------------------------------------------------------------------------------------------------------------\n");
 	
-	for(int i =1; i < currInstr;i++){
+	for(int i = 1; i < currInstr;i++){
 		
 
 		fprintf(file,"%-8d",i);
 		/*:))))))))))*/
 		switch (instructions[i].opcode){
 				case assign_v:
-					fprintf(file,"%-20s ", "assign");break;
+					fprintf(file,"%-25s ", "assign");break;
 				case add_v:
-					fprintf(file,"%-20s ","add");break;
+					fprintf(file,"%-25s ","add");break;
 				case sub_v:
-					fprintf(file,"%-20s ","sub");break;
+					fprintf(file,"%-25s ","sub");break;
 				case mul_v:
-					fprintf(file,"%-20s ","mul");break;
+					fprintf(file,"%-25s ","mul");break;
 				case div_v:
-					fprintf(file,"%-20s ","div");break;
+					fprintf(file,"%-25s ","div");break;
 				case mod_v:
-					fprintf(file,"%-20s ","mod");break;
+					fprintf(file,"%-25s ","mod");break;
 				case uminus_v:
-					fprintf(file,"%-20s ","uminus");break;
+					fprintf(file,"%-25s ","uminus");break;
 				case and_v:
-					fprintf(file,"%-20s ","and");break;
+					fprintf(file,"%-25s ","and");break;
 				case or_v:
-					fprintf(file,"%-20s ","or");break;
+					fprintf(file,"%-25s ","or");break;
 				case not_v:
-					fprintf(file,"%-20s ","not");break;
+					fprintf(file,"%-25s ","not");break;
 				case jeq_v:
-					fprintf(file,"%-20s ","if_eq");break;
+					fprintf(file,"%-25s ","if_eq");break;
 				case jne_v:
-					fprintf(file,"%-20s ","if_noteq");break;
+					fprintf(file,"%-25s ","if_noteq");break;
 				case jle_v:
-					fprintf(file,"%-20s ","if_lesseq ");break;
+					fprintf(file,"%-25s ","if_lesseq ");break;
 				case jge_v:
-					fprintf(file,"%-20s ","if_greatereq");break;
+					fprintf(file,"%-25s ","if_greatereq");break;
 				case jlt_v:
-					fprintf(file,"%-20s ","if_less");break;
+					fprintf(file,"%-25s ","if_less");break;
 				case jgt_v:
-					fprintf(file,"%-20s ","if_greater");break;
+					fprintf(file,"%-25s ","if_greater");break;
 				case call_v:
-					fprintf(file,"%-20s ","call");break;
+					fprintf(file,"%-25s ","call");break;
 				case pusharg_v:
-					fprintf(file,"%-20s ","pusharg");break;
+					fprintf(file,"%-25s ","pusharg");break;
 				/*case ret_v:
 					fprintf(file,"%-20s ","ret");break;
 				case GETRETVAL:
 					fprintf(file,"%-20s ","getretval");break;*/
 				case funcenter_v:
-					fprintf(file,"%-20s ","funcstart");break;
+					fprintf(file,"%-25s ","funcstart");break;
 				case funcexit_v:
-					fprintf(file,"%-20s ","funcend");break;
+					fprintf(file,"%-25s ","funcend");break;
 				case newtable_v:
-					fprintf(file,"%-20s ","tablecreate");break;
+					fprintf(file,"%-25s ","tablecreate");break;
 				case tablegetelem_v:
-					fprintf(file,"%-20s ","tablegetelem");break;
+					fprintf(file,"%-25s ","tablegetelem");break;
 				case tablesetelem_v:
-					fprintf(file,"%-20s ","tablesetelem");break;
+					fprintf(file,"%-25s ","tablesetelem");break;
 				case jmp_v:
-					fprintf(file,"%-20s ","jump");break;
+					fprintf(file,"%-25s ","jump");break;
 				default:
-					fprintf(file,"%-20s ","unknownopcode");break;
+					fprintf(file,"%-25s ","unknownopcode");break;
+			}
+			
+			printEnum(file,&(instructions[i].result));
+			if(instructions[i].result.type != uninitialized_a){
+				fprintf(file,"%-20u ",instructions[i].result.val);
+			}
+			
+			printEnum(file,&(instructions[i].arg1));
+			if(instructions[i].arg1.type != uninitialized_a){
+				fprintf(file,"%-20u ",instructions[i].arg1.val);
 			}
 
+			printEnum(file,&(instructions[i].arg2));
+			if(instructions[i].arg2.type != uninitialized_a){
+				fprintf(file,"%-20u ",instructions[i].arg2.val);
+			}
+
+			
+
 
 		
-		/*if(instructions[i].result == NULL) fprintf(file,"%-20s", "-");
-		else fprintf(file, "%-20s", instructions[i].result);
-
-		if(instructions[i].arg1 == NULL) fprintf(file, "%-20s", "-");
-		else fprintf(file, "%-20s", instructions[i].arg1);
-
-		if(instructions[i].arg2 == NULL) fprintf(file, "%-20s", "-");
-		else fprintf(file, "%-20s", instructions[i].arg2);
 		
-		if(instructions[i].label == 0){
-			fprintf(file,"%-20s\n", "-");
-		}else{
-			fprintf(file,"%d\n",quads[i].label);
-		}*/
-		fprintf(file,"  u\n");
+		fprintf(file,"  \n");
 	}
 	
 	fclose(file);
+
+}
+
+void printValArray(){
+	printf("\nString Array\n");
+	for(unsigned i = 0;i < strCounter;i++){
+		printf("%d:  %s\n",i,strArray[i]);
+	
+	}
+	
+	printf("\nNumber Array\n");
+	for(unsigned i = 0;i < numCounter;i++){
+		printf("%d:  %lf\n",i,numArray[i]);
+	
+	}
+	
+	printf("\nUserfunc Array\n");
+	for(unsigned i = 0;i < funcCounter;i++){
+		printf("%d:  %s\n",i,funcArray[i]->name);
+	
+	}
+
+	printf("\nLibfunc Array\n");
+	for(unsigned i = 0;i < libfuncCounter;i++){
+		printf("%d:  %s\n",i,libfuncArray[i]);
+	
+	}
 
 }
 

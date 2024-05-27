@@ -199,7 +199,8 @@ enum vmarg_t {
 	nil_a		=7,
 	userfunc_a	=8,
 	libfunc_a	=9,
-	retval_a	=10
+	retval_a	=10,
+	uninitialized_a =11
 };
 
 struct vmarg {

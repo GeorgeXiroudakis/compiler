@@ -1,5 +1,5 @@
-x = 5;
-y = -x;
-z = 13;
+x = "ssssss";
+y = x++;
+z = x + 2;
 g = true;
-x++;
+f = g + 3;
