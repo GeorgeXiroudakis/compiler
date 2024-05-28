@@ -1,0 +1,14 @@
+function f(x,y,z){return (x*y)/z;}
+
+function g(){ k++; return k;}
+
+s = g;
+
+s(c);
+
+w = f;
+
+w(1,2,3);
+
+s = objectcopy(1,2,3,4,5,6,7,8,9,10,11,a,b,c);
+
