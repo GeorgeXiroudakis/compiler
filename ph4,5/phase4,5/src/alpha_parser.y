@@ -170,7 +170,7 @@ void generate(enum vmopcode op,struct quad* q);
 unsigned nextinstructionlabel(void);
 void emit_instruction(struct instruction* i);
 unsigned currprocessedquad();
-void append_retList(struct return_list* ret,unsigned label);
+void append_retList(struct return_list** ret,unsigned label);
 void backpatch_retlist(struct return_list* ret,unsigned label);
 void printInstructions();
 void printEnum(FILE* file,struct vmarg* arg);
@@ -529,14 +529,25 @@ assignexpr: lvalue EQUAL expr {
 											SymbolTableEntry_t* t = $1->sym;
 											SymbolTableEntry_t* t2 = $3->sym;
 											$1->sym->gramType = $3->sym->gramType;
-											if($3->sym->gramType == gr_conststring) $1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
-											else if($3->sym->gramType == gr_string) $1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
+											if($3->sym->gramType == gr_conststring){ 
+												$1->sym->grammarVal.string = strdup($3->sym->grammarVal.string); 
+												$1->sym->gramType = gr_string; 
+											}
+											else if($3->sym->gramType == gr_string) {
+												$1->sym->grammarVal.string = strdup($3->sym->grammarVal.string);
+											}
 											else if($3->sym->gramType == gr_boolean) $1->sym->grammarVal.boolean = $3->sym->grammarVal.boolean;
 											else if($3->sym->gramType == gr_nil) $1->sym->grammarVal.nil = $3->sym->grammarVal.nil;
 											else if($3->sym->gramType == gr_integer) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
-											else if($3->sym->gramType == gr_constinteger) $1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
+											else if($3->sym->gramType == gr_constinteger) {
+												$1->sym->grammarVal.intNum = $3->sym->grammarVal.intNum;
+												$1->sym->gramType = gr_integer;
+											}
 											else if($3->sym->gramType == gr_real) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
-											else if($3->sym->gramType == gr_constreal) $1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
+											else if($3->sym->gramType == gr_constreal){
+												$1->sym->grammarVal.realNum = $3->sym->grammarVal.realNum;
+												$1->sym->gramType = gr_real;
+											}
 											else if($3->sym->gramType == gr_funcaddr) $1->sym->grammarVal.funcPtr = $3->sym->grammarVal.funcPtr;
 											$1->sym->boolVal = $3->sym->boolVal;
 											//$1->type = $3->type;
@@ -598,7 +609,7 @@ lvalue: IDENTIFIER		{
 									}
 									if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
 									else if(res->gramType == gr_string) $$ = makeExpression(var_e,res,NULL,NULL);
-									else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
+									else if(res->gramType == gr_boolean) $$ = makeExpression(var_e,res,NULL,NULL);
 									else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
 									else if(res->gramType == gr_integer) $$ = makeExpression(var_e,res,NULL,NULL);
 									else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
@@ -625,12 +636,12 @@ lvalue: IDENTIFIER		{
 						}else{
 							
 							if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
-							else if(res->gramType == gr_string) $$ = makeExpression(conststring_e,res,NULL,NULL);
-							else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
+							else if(res->gramType == gr_string) $$ = makeExpression(var_e,res,NULL,NULL);
+							else if(res->gramType == gr_boolean) $$ = makeExpression(var_e,res,NULL,NULL);
 							else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
-							else if(res->gramType == gr_integer) $$ = makeExpression(constnum_e,res,NULL,NULL);
+							else if(res->gramType == gr_integer) $$ = makeExpression(var_e,res,NULL,NULL);
 							else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
-							else if(res->gramType == gr_real) $$ = makeExpression(constnum_e,res,NULL,NULL);
+							else if(res->gramType == gr_real) $$ = makeExpression(var_e,res,NULL,NULL);
 							else if(res->gramType == gr_constreal) $$ = makeExpression(constnum_e,res,NULL,NULL);
 							else if(res->gramType == gr_funcaddr) $$ = makeExpression(programfunc_e,res,NULL,NULL);
 						}
@@ -645,12 +656,12 @@ lvalue: IDENTIFIER		{
 					 $$ = makeExpression(nil_e, NULL, NULL, NULL);
 				  }else{
 					if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
-					else if(res->gramType == gr_string) $$ = makeExpression(conststring_e,res,NULL,NULL);
-					else if(res->gramType == gr_boolean) $$ = makeExpression(constbool_e,res,NULL,NULL);
+					else if(res->gramType == gr_string) $$ = makeExpression(var_e,res,NULL,NULL);
+					else if(res->gramType == gr_boolean) $$ = makeExpression(var_e,res,NULL,NULL);
 					else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
-					else if(res->gramType == gr_integer) $$ = makeExpression(constnum_e,res,NULL,NULL);
+					else if(res->gramType == gr_integer) $$ = makeExpression(var_e,res,NULL,NULL);
 					else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
-					else if(res->gramType == gr_real) $$ = makeExpression(constnum_e,res,NULL,NULL);
+					else if(res->gramType == gr_real) $$ = makeExpression(var_e,res,NULL,NULL);
 					else if(res->gramType == gr_constreal) $$ = makeExpression(constnum_e,res,NULL,NULL);
 					else if(res->gramType == gr_funcaddr) $$ = makeExpression(programfunc_e,res,NULL,NULL);
 				  }
@@ -1771,7 +1782,7 @@ Function_t* pop_funcstack(void){
 }
 
 Function_t* top_funcstack(void){
-	/*if(head == NULL){
+	if(head == NULL){
 		return NULL;
 	}else{
 		struct func_stack* temp = head;
@@ -1779,7 +1790,7 @@ Function_t* top_funcstack(void){
 			temp = temp->next;
 		}
 		return temp->func;
-	}*/
+	}
 	
 	return head->func;
 }
@@ -1792,7 +1803,7 @@ unsigned consts_newstring(char* str){
 		strArray = malloc(sizeof(char*));
 		strArray[i] = strdup(str);
 	}else{
-		while(strArray[i] != NULL){
+		while(i < strCounter){
 			if(strcmp(strArray[i],str) == 0){
 				return i;
 			}
@@ -1818,7 +1829,7 @@ unsigned consts_newnumber(double n){
 			}
 		}
 		numArray = realloc(numArray,sizeof(double) * (i + 1));
-		numArray[i] = n;
+		numArray[i] = (double) n;
 	}
 	numCounter++;
 	return i;
@@ -1916,7 +1927,7 @@ void make_operand(struct expr* e, struct vmarg* arg){
 		}
 
 		case constnum_e: {
-			arg->val = consts_newnumber(e->sym->grammarVal.intNum); //TODO check dis
+			arg->val = (e->sym->gramType == gr_integer || e->sym->gramType == gr_constinteger) ? (consts_newnumber(e->sym->grammarVal.intNum)) : consts_newnumber(e->sym->grammarVal.realNum);
 			arg->type = number_a; break;
 		}
 		
@@ -1946,14 +1957,14 @@ void reset_operand(struct vmarg* arg){
 	make_operand(NULL,&arg);
 }
 
-void append_retList(struct return_list* ret,unsigned label){
+void append_retList(struct return_list** ret,unsigned label){
 	struct return_list* new = malloc(sizeof(struct return_list));
 	new->retLabel = label;
 	new->next = NULL;
-	if(ret == NULL){
-		ret = new;
+	if(*ret == NULL){
+		*ret = new;
 	}else{
-		struct return_list* temp = ret;
+		struct return_list* temp = *ret;
 		while(temp->next != NULL){
 			temp = temp->next;
 		}
@@ -1985,6 +1996,7 @@ void make_booloperand(struct vmarg* arg, unsigned val){
 
 void make_retvaloperand(struct vmarg* arg){
 	arg->type = retval_a;
+	arg->val = -1;
 }
 
 
@@ -2013,12 +2025,18 @@ unsigned currprocessedquad(){
 
 void patch_incomplete_jumps(){
 	struct incomplete_jump* temp = ij_head;
-	while(temp != 0){
+	if(temp == 0){
+		return;
+	}
+	unsigned i = 0;
+	while(i < ij_total){
 		if(temp->iaddress == currQuad){
 			instructions[temp->iaddress].result.val = totalInstr;
 		}else{
 			instructions[temp->iaddress].result.val = quads[temp->iaddress].taddress;
 		}
+		i++;
+		temp = temp->next;
 	}
 }
 
@@ -2111,25 +2129,31 @@ void generate_OR (struct quad* q) { generate(add_v,q); }
 
 void generate_PARAM (struct quad* q) { 
 	q->taddress = nextinstructionlabel();
-	struct instruction* t;
+	struct instruction* t = malloc(sizeof(struct instruction));
 	t->opcode = pusharg_v;
-	make_operand(q->arg1,&t->arg1);
+	make_operand(q->arg1,&(t->arg1));
+	make_operand(q->arg2,&(t->arg2));
+	make_operand(q->result,&(t->result));
 	emit_instruction(t);
 }
 
 void generate_CALL (struct quad* q) { 
 	q->taddress = nextinstructionlabel();
-	struct instruction* t;
+	struct instruction* t = malloc(sizeof(struct instruction));
 	t->opcode = call_v;
-	make_operand(q->arg1,&t->arg1);
+	make_operand(q->arg1,&(t->arg1));
+	make_operand(q->arg2,&(t->arg2));
+	make_operand(q->result,&(t->result));
 	emit_instruction(t);
 }
 
 void generate_GETRETVAL (struct quad* q) { 
 	q->taddress = nextinstructionlabel();
-	struct instruction* t;
+	struct instruction* t = malloc(sizeof(struct instruction));
 	t->opcode = assign_v;
-	make_operand(q->result,&t->result);
+	make_operand(q->result,&(t->result));
+	make_operand(q->arg2,&(t->arg2));
+	make_retvaloperand(&(t->arg1));
 	emit_instruction(t);
 }
 
@@ -2141,11 +2165,11 @@ void generate_FUNCSTART (struct quad* q) {
 	userfuncs_newfunc(f);
 
 	push_funcstack(f->value.funcVal);
-	struct instruction* t;
+	struct instruction* t = malloc(sizeof(struct instruction));
 	t->opcode = funcenter_v;
-	make_operand(q->result,&t->result);
-	make_operand(q->arg1,&t->arg1);
-	make_operand(q->arg2,&t->arg2);
+	make_operand(q->result,&(t->result));
+	make_operand(q->arg1,&(t->arg1));
+	make_operand(q->arg2,&(t->arg2));
 	
 	emit_instruction(t);
 
@@ -2155,26 +2179,28 @@ void generate_FUNCEND (struct quad* q) {
 	f = pop_funcstack();
 	backpatch_retlist(f->retList,nextinstructionlabel());
 	q->taddress = nextinstructionlabel();
-	struct instruction* t;
+	struct instruction* t = malloc(sizeof(struct instruction));
 	t->opcode = funcexit_v;
-	make_operand(q->result,&t->result);
-	make_operand(q->arg1,&t->arg1);
-	make_operand(q->arg2,&t->arg2);
+	make_operand(q->result,&(t->result));
+	make_operand(q->arg1,&(t->arg1));
+	make_operand(q->arg2,&(t->arg2));
 	emit_instruction(t);
 }
 void generate_RETURN (struct quad* q) { 
 	q->taddress = nextinstructionlabel();
-	struct instruction* t;
+	struct instruction* t = malloc(sizeof(struct instruction));
 	t->opcode = assign_v;
-	make_retvaloperand(&t->result);
-	make_operand(q->arg1,&t->arg1);
+	make_retvaloperand(&(t->result));
+	make_operand(q->arg1,&(t->arg1));
+	make_operand(q->arg1,&(t->arg2));
 	emit_instruction(t);
 	Function_t* f = top_funcstack();
-	append_retList(f->retList,nextinstructionlabel());
+	
+	append_retList(&(f->retList),nextinstructionlabel());
 	
 	t->opcode = jmp_v;
-	reset_operand(&t->arg1);
-	reset_operand(&t->arg2);
+	reset_operand(&(t->arg1));
+	reset_operand(&(t->arg2));
 	t->result.type = label_a;
 	emit_instruction(t);
 }
@@ -2185,9 +2211,10 @@ void generate_instructions(void){
 	for(unsigned i = 1;i < currQuad;i++){
 		printf("%d\n", (quads + i)->op);
 		(*generators[quads[i].op])(quads + i);
+		processedQuads++;
 	}
 	
-	processedQuads++;
+	patch_incomplete_jumps();
 }
 
 

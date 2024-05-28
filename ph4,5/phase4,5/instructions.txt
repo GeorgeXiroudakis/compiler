@@ -1,0 +1,6 @@
+Instruction# opcode                    result               result value         arg1                 arg1 value           arg2                 arg2 value          
+-------------------------------------------------------------------------------------------------------------
+1       assign                    global_a            12                   number_a            0                    uninitialized_a     -                      
+2       assign                    global_a            13                   global_a            12                   uninitialized_a     -                      
+3       assign                    global_a            12                   number_a            1                    uninitialized_a     -                      
+4       assign                    global_a            14                   global_a            12                   uninitialized_a     -                      

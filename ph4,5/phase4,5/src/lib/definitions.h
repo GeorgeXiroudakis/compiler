@@ -64,7 +64,7 @@ typedef struct SymbolTableEntry{
 	
 	union {
 		int intNum;
-		float realNum;
+		double realNum;
 		char* string;
 		short int boolean;
 		short int nil;
