@@ -66,6 +66,8 @@ int infunction = 0;
 
 #define loopcounter (lcs_top->counter)
 
+void expand();
+
 struct expr* emit_iftableitem(struct expr* e);
 struct expr* member_item(struct expr* lvalue, char* name);
 struct expr* newexpr_conststring(char* c);
@@ -144,6 +146,8 @@ char** libfuncArray = NULL;
 unsigned libfuncCounter = 0;
 
 struct func_stack* head = NULL;
+
+void expand_instructions();
 
 static void avm_initstack(void);
 struct avm_table* avm_tablenew(void);
@@ -461,15 +465,15 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 				emit(TABLESETELEM,$2,$2->index,$$,0,0);
 			}else{
 				emit(ADD,$2,newexpr_constnum(1),$2,0,$2->sym->value.varVal->line);
-				$$ = makeExpression(arithexpr_e,$2,NULL,NULL);
-				$$->sym = newtemp();
+				$$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
+				//$$->sym = newtemp();
 				emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);
 			}
 		      }
     | lvalue PLUSPLUS {
     			 checkArithmetic($1);
-			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
-			 $$->sym = newtemp();
+			 $$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
+			 //$$->sym = newtemp();
 
 			 if($1->type == tableitem_e){
 				struct expr* val = emit_iftableitem($1);
@@ -492,15 +496,15 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 				emit(TABLESETELEM,$2,$2->index,$$,0,0);
 			  }else{
 				 emit(SUB,$2,newexpr_constnum(1),$2,0,0);
-				 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
-				 $$->sym = newtemp();
+				 $$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
+				 //$$->sym = newtemp();
 				 emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);
 			 }
 			}
     | lvalue MINUSMINUS {
     			 checkArithmetic($1);
-			 $$ = makeExpression(arithexpr_e,$2,NULL,NULL);
-			 $$->sym = newtemp();
+			 $$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
+			 //$$->sym = newtemp();
 			
 			 	if($1->type == tableitem_e){
 					struct expr* val = emit_iftableitem($1);
@@ -623,7 +627,7 @@ lvalue: IDENTIFIER		{
 									
 									
 								}
-							}else $$ = makeExpression(libraryfunc_e, upStreamLookUp(currScope, $1), NULL, NULL);
+							}else { printf("lala1\n"); $$ = makeExpression(libraryfunc_e, upStreamLookUp(currScope, $1), NULL, NULL);}
 						}
 						
      
@@ -647,7 +651,8 @@ lvalue: IDENTIFIER		{
 						}
 					} else {
 						$$ = makeExpression(libraryfunc_e, scopeLookUp(currScope, $1), NULL, NULL);
-					       }
+					       printf("lala2\n");
+						   }
 				}     
       | DOUBLECOLON IDENTIFIER	{ 
       				  SymbolTableEntry_t* res = scopeLookUp(0,$2); 	
@@ -677,9 +682,12 @@ call_lvalue: IDENTIFIER				{
 										printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
 										if(res->type == userfunc){
 											 $$ = makeExpression(programfunc_e,res,NULL,NULL);
-								 		}else{
+								 		}else /*if(res->type == libfunc)*/{
 								 			 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
-								 		}
+								 			printf("lala3\n");
+										 } /*else {
+											 $$ = makeExpression(programfunc_e,res,NULL,NULL);
+										 }*/
 									}
 								 }else{
 								 $$ = makeExpression(nil_e,NULL,NULL,NULL);
@@ -699,7 +707,8 @@ call_lvalue: IDENTIFIER				{
 											 $$ = makeExpression(programfunc_e,res,NULL,NULL);
 								 		}else{
 								 			 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
-								 		}
+								 			printf("lala4\n");
+										 }
 									}
 								}else {
 									yyerror("Function not found");
@@ -1378,7 +1387,7 @@ void emit(
 }
 
 struct exprNode* reverseList(struct exprNode* head) {
-     struct exprNode*  *prev = NULL, *current = head, *next = NULL;
+     struct exprNode/* * */  *prev = NULL, *current = head, *next = NULL;
         while (current != NULL) {
 	        next = current->next;
 		current->next = prev;
@@ -1678,7 +1687,7 @@ int popandtop(void){
 
 void expand_instructions(){
 	assert(totalInstr == currInstr - 1);
-	struct instructions* i = malloc(NEW_SIZE_INSTR);
+	struct instruction* i = malloc(NEW_SIZE_INSTR);
 	if(quads){
 		memcpy(i,instructions,CURR_SIZE_INSTR);
 		free(instructions);
@@ -1848,13 +1857,14 @@ unsigned userfuncs_newfunc(SymbolTableEntry_t* s){
 		funcArray[i]->totallocals = s->value.funcVal->totallocals;
 		//TODO taddress
 	}else{
-		while(funcArray[i] != NULL){
+		while(i < funcCounter){
 			if((strcmp(funcArray[i]->name,s->value.funcVal->name) == 0) && (funcArray[i]->qaddress == s->value.funcVal->qaddress)){
 				return i;
 			}
 			i++;
 		}
 		funcArray = realloc(funcArray,sizeof(Function_t*) * (i + 1));
+		funcArray[i] = malloc(sizeof(Function_t));
 		funcArray[i]->name = strdup(s->value.funcVal->name);
 		funcArray[i]->arglist = s->value.funcVal->arglist;
 		funcArray[i]->scope = s->value.funcVal->scope;
@@ -1878,7 +1888,7 @@ unsigned libfuncs_newused(char* l){
 		return 0;
 	}else{
 		unsigned i = 0;
-		while(libfuncArray[i] != NULL){
+		while(i < libfuncCounter){
 			if(strcmp(libfuncArray[i],l) == 0){
 				return i;
 			}
@@ -1906,7 +1916,6 @@ void make_operand(struct expr* e, struct vmarg* arg){
 		case newtable_e: {
 			assert(e->sym);
 			arg->val = e->sym->symbol->offset;
-
 			switch(e->sym->symbol->scopeSpace){
 				case program_var: arg->type = global_a; break;
 				case function_loc: arg->type = local_a; break;
@@ -1954,7 +1963,7 @@ void make_operand(struct expr* e, struct vmarg* arg){
 }
 
 void reset_operand(struct vmarg* arg){
-	make_operand(NULL,&arg);
+	make_operand(NULL,/*&*/arg);
 }
 
 void append_retList(struct return_list** ret,unsigned label){
@@ -2073,8 +2082,10 @@ void generate_relational(enum vmopcode op,struct quad* q){
 	t->result.type = label_a;
 	if(q->label < currprocessedquad()){
 		t->result.val = quads[q->label].taddress;
+		//t->result.val = 11888;
 	}else{
 		add_incomplete_jump(nextinstructionlabel(),q->label);
+		//t->result.val = 88111;
 	}
 	q->taddress = nextinstructionlabel();
 	emit_instruction(t);
@@ -2182,8 +2193,10 @@ void generate_FUNCEND (struct quad* q) {
 	struct instruction* t = malloc(sizeof(struct instruction));
 	t->opcode = funcexit_v;
 	make_operand(q->result,&(t->result));
-	make_operand(q->arg1,&(t->arg1));
-	make_operand(q->arg2,&(t->arg2));
+	reset_operand(&(t->arg1));
+	reset_operand(&(t->arg2));
+	/*make_operand(q->arg1,&(t->arg1));
+	make_operand(q->arg2,&(t->arg2));*/
 	emit_instruction(t);
 }
 void generate_RETURN (struct quad* q) { 
@@ -2192,7 +2205,8 @@ void generate_RETURN (struct quad* q) {
 	t->opcode = assign_v;
 	make_retvaloperand(&(t->result));
 	make_operand(q->arg1,&(t->arg1));
-	make_operand(q->arg1,&(t->arg2));
+	//make_operand(q->arg1,&(t->arg2));
+	reset_operand(&(t->arg2));
 	emit_instruction(t);
 	Function_t* f = top_funcstack();
 	
@@ -2209,7 +2223,7 @@ void generate_UMINUS(struct quad* q){ generate(uminus_v,q); }
 
 void generate_instructions(void){
 	for(unsigned i = 1;i < currQuad;i++){
-		printf("%d\n", (quads + i)->op);
+		//printf("%d\n", (quads + i)->op);
 		(*generators[quads[i].op])(quads + i);
 		processedQuads++;
 	}
@@ -2393,6 +2407,8 @@ void printValArray(){
 
 
 /* END OF PHASE 4,5 */
+
+
 SymbolTableEntry_t* makeLibEntry(char *name){
 
     	SymbolTableEntry_t *entry;

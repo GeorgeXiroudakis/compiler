@@ -142,7 +142,7 @@ struct exprNode {
 };
 
 struct call {
-	struct expr* elist;
+	struct exprNode* elist;
 	unsigned char method;
 	char* name;
 };
