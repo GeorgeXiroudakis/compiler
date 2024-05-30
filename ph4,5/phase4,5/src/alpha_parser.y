@@ -128,6 +128,8 @@ struct incomplete_jump* ij_head = (struct incomplete_jump*)0;
 unsigned		ij_total = 0;
 
 struct instruction* instructions = (struct instruction*)0;
+
+unsigned tcodeSize = 0;
 unsigned totalInstr = 0;
 unsigned int currInstr = 1;
 
@@ -1153,7 +1155,7 @@ forprefix: FOR PARENTHOPEN {currScope++; allocateScopes(currScope); } elist {eli
 									 }
 								       
 								       
-								       emit(IF_EQ,$8,newexpr_constbool(1),NULL,0,0);
+								       emit(IF_EQ,$8,newexpr_constbool(1),NULL,nextquadlabel() + 5,0);
 								      }
 forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} unfinjmp loopstmt unfinjmp {
    								    	   patchlabel($1->enter,$6 + 1);
@@ -1554,6 +1556,7 @@ struct expr* newexpr_constbool(short int value){
 	}
 	newentry->grammarVal.boolean = value;
 	newentry->gramType = gr_boolean;
+	newentry->boolVal = value;
 	struct expr* newexpr = makeExpression(constbool_e,newentry,NULL,NULL);
 	return newexpr;
 }
@@ -2038,9 +2041,9 @@ void patch_incomplete_jumps(){
 	unsigned i = 0;
 	while(i < ij_total){
 		if(temp->iaddress == currQuad){
-			instructions[temp->iaddress].result.val = totalInstr;
+			instructions[temp->instrNo].result.val = tcodeSize;
 		}else{
-			instructions[temp->iaddress].result.val = quads[temp->iaddress].taddress;
+			instructions[temp->instrNo].result.val = quads[temp->iaddress].taddress;
 		}
 		i++;
 		temp = temp->next;
@@ -2057,8 +2060,8 @@ void emit_instruction(struct instruction* i){
 	new->arg1 = i->arg1;
 	new->arg2 = i->arg2;
 	new->result = i->result;
-	new->srcLine = i->srcLine;
-	totalInstr++;
+	//new->srcLine = i->srcLine;
+	tcodeSize++;
 }
 
 void generate(enum vmopcode op,struct quad* q){
@@ -2074,16 +2077,16 @@ void generate(enum vmopcode op,struct quad* q){
 void generate_relational(enum vmopcode op,struct quad* q){
 	struct instruction* t = malloc(sizeof(struct instruction));
 	t->opcode = op;
-	make_operand(q->arg1,&t->arg1);
-	make_operand(q->arg2,&t->arg2);
+	//make_operand(q->result,&(t->result));
+	make_operand(q->arg1,&(t->arg1));
+	make_operand(q->arg2,&(t->arg2));
 
 	t->result.type = label_a;
+	printf("q label is: %u, currProcessedQuad is: %u\n",q->label,currprocessedquad());
 	if(q->label < currprocessedquad()){
 		t->result.val = quads[q->label].taddress;
-		//t->result.val = 11888;
 	}else{
 		add_incomplete_jump(nextinstructionlabel(),q->label);
-		//t->result.val = 88111;
 	}
 	q->taddress = nextinstructionlabel();
 	emit_instruction(t);
@@ -2263,7 +2266,7 @@ void printEnum(FILE* file,struct vmarg* arg){
                 case retval_a:  fprintf(file,"%-25s","retval_a");
                         break;
 
-                case uninitialized_a:   fprintf(file,"%-25s","uninitialized_a");
+                case uninitialized_a:   fprintf(file,"%-25s","-");
                         break;
 
                 default:

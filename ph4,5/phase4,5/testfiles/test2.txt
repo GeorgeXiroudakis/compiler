@@ -2,3 +2,5 @@ i = 0;
 while( i < 15){
 	i++;
 }
+gkampijump = 1;
+gkshrujump = 2;

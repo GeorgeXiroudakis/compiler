@@ -1,0 +1,7 @@
+x = 10;
+for(a = 0; a < x; a++){
+	x--;
+}
+
+gkshrujump = q;
+

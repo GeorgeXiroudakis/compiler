@@ -1,0 +1,11 @@
+x = 0;
+
+while(x < gkampi){
+	if(kshru != gkampi){
+		tonis = 5;
+		continue;
+	}
+	x++;
+}
+
+kshru = true;
