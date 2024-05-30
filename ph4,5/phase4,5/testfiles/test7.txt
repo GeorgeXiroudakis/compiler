@@ -1,0 +1,8 @@
+function tonis(goumpi) {khirou++;}
+x = 5;
+tonissuper = "he really is";
+ghkampiDebuger = "the best in town";
+ksirou = "mid";
+fdssdf =32;
+fsdfdsfsd = 453;
+fdsfdsfsd = 325325;

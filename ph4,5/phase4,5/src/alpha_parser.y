@@ -174,7 +174,7 @@ void generate(enum vmopcode op,struct quad* q);
 unsigned nextinstructionlabel(void);
 void emit_instruction(struct instruction* i);
 unsigned currprocessedquad();
-void append_retList(struct return_list** ret,unsigned label);
+void append_retList(Function_t* ret ,unsigned label);
 void backpatch_retlist(struct return_list* ret,unsigned label);
 void printInstructions();
 void printEnum(FILE* file,struct vmarg* arg);
@@ -397,19 +397,20 @@ expr: assignexpr {	struct expr* temp;
 				   }
     | expr compop expr %prec GREATERTHAN {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
     					  
+    					   
 					  if($1->sym->gramType != gr_integer && $1->sym->gramType != gr_constinteger && $1->sym->gramType != gr_constreal && $1->sym->gramType != gr_real){
-						yyerror("Invalid type for compare expression");
-				   }else if($3->sym->gramType != gr_integer && $3->sym->gramType != gr_constinteger && $3->sym->gramType != gr_constreal && $3->sym->gramType  != gr_real){
-						yyerror("Invalid type for compare expression");
-					}else{
+						 if(*$2 != IF_EQ && *$2 != IF_NOTEQ) yyerror("Invalid type for compare expression");
+				   	  }else if($3->sym->gramType != gr_integer && $3->sym->gramType != gr_constinteger && $3->sym->gramType != gr_constreal && $3->sym->gramType  != gr_real){
+						if(*$2 != IF_EQ && *$2 != IF_NOTEQ) yyerror("Invalid type for compare expression");
+					  }else{
     					 
-    					  $$->truelist = newlist(nextquadlabel());
-    					  $$->falselist = newlist(nextquadlabel()+1);
-    					  
-    					  emit(*$2,$1,$3,NULL,0,0);
-					  emit(JUMP,NULL,NULL,NULL,0,0); 
+	    					  $$->truelist = newlist(nextquadlabel());
+	    					  $$->falselist = newlist(nextquadlabel()+1);
+	    					  
+	    					  emit(*$2,$1,$3,NULL,0,0);
+						  emit(JUMP,NULL,NULL,NULL,0,0); 
 					  
-					}
+					  }
 					 }
     | expr boolop quadsave expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
     				 
@@ -676,24 +677,21 @@ lvalue: IDENTIFIER		{
 
 call_lvalue: IDENTIFIER				{
 								SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
-								 if(res != NULL) {
-								 	if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
-								 	else {
-										printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
-										if(res->type == userfunc){
-											 $$ = makeExpression(programfunc_e,res,NULL,NULL);
-								 		}else /*if(res->type == libfunc)*/{
-								 			 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
-								 			printf("lala3\n");
-										 } /*else {
-											 $$ = makeExpression(programfunc_e,res,NULL,NULL);
-										 }*/
-									}
-								 }else{
-								 $$ = makeExpression(nil_e,NULL,NULL,NULL);
-								 yyerror("Function not found");
-								 
-								 }
+								  if(res != NULL) {
+                                                                        if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
+                                                                        else {
+                                                                                printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
+                                                                                if(res->type == libfunc){
+                                                                                         $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
+                                                                                }else {
+                                                                                         $$ = makeExpression(programfunc_e,res,NULL,NULL);
+                                                                                 }
+                                                                        }
+                                                                 }else{
+                                                                 $$ = makeExpression(nil_e,NULL,NULL,NULL);
+                                                                 yyerror("Function not found");
+
+                                                                 }
 								
 								 
 								 
@@ -703,12 +701,11 @@ call_lvalue: IDENTIFIER				{
 									if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
 									else {
 										printf("caling function %s\n", res->value.varVal->name);
-										if(res->type == userfunc){
-											 $$ = makeExpression(programfunc_e,res,NULL,NULL);
-								 		}else{
-								 			 $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
-								 			printf("lala4\n");
-										 }
+										if(res->type == libfunc){
+                                                                                         $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
+                                                                                }else {
+                                                                                         $$ = makeExpression(programfunc_e,res,NULL,NULL);
+                                                                                 }
 									}
 								}else {
 									yyerror("Function not found");
@@ -1203,6 +1200,7 @@ returnstmt: RETURN SEMICOLON { if(infunction > 0){
 int yyerror(char *yyProvideMessage) {
 	fprintf(stderr, RED "%s: at line %d, before token: %s\n\n" RESET, yyProvideMessage, yylineno, yytext);
     fprintf(stderr, RED "INPUT NOT VALID\n" RESET);
+    exit(-1);
     return 0;
 }
 
@@ -1784,6 +1782,7 @@ Function_t* pop_funcstack(void){
 		}
 		if(prev != NULL){
 			prev->next = NULL;
+		}else{
 			head = NULL;
 		}
 		return temp->func;
@@ -1798,10 +1797,9 @@ Function_t* top_funcstack(void){
 		while(temp->next != NULL){
 			temp = temp->next;
 		}
+		printf("%p\n", temp->func->retList);
 		return temp->func;
 	}
-	
-	return head->func;
 }
 
 
@@ -1966,14 +1964,14 @@ void reset_operand(struct vmarg* arg){
 	make_operand(NULL,/*&*/arg);
 }
 
-void append_retList(struct return_list** ret,unsigned label){
+void append_retList(Function_t* ret,unsigned label){
 	struct return_list* new = malloc(sizeof(struct return_list));
 	new->retLabel = label;
 	new->next = NULL;
-	if(*ret == NULL){
-		*ret = new;
+	if(ret->retList == NULL){
+		ret->retList = new;
 	}else{
-		struct return_list* temp = *ret;
+		struct return_list* temp = ret->retList;
 		while(temp->next != NULL){
 			temp = temp->next;
 		}
@@ -2209,8 +2207,9 @@ void generate_RETURN (struct quad* q) {
 	reset_operand(&(t->arg2));
 	emit_instruction(t);
 	Function_t* f = top_funcstack();
+	printf("here: %p\n", f);
 	
-	append_retList(&(f->retList),nextinstructionlabel());
+	append_retList(f,nextinstructionlabel());
 	
 	t->opcode = jmp_v;
 	reset_operand(&(t->arg1));
@@ -2233,148 +2232,148 @@ void generate_instructions(void){
 
 
 void printEnum(FILE* file,struct vmarg* arg){
-	
-	if(arg == NULL){
-		fprintf(file,"%-20s","-");
-		return;
-	}
+
+        if(arg == NULL){
+                fprintf(file,"%-25s","-");
+                return;
+        }
 
 
-	switch(arg->type){
-		case label_a:	fprintf(file,"%-20s","label_a");
-			break;
-		case global_a:	fprintf(file,"%-20s","global_a");
-			break;
-		case formal_a:	fprintf(file,"%-20s","formal_a");
-			break;
-		case local_a:	fprintf(file,"%-20s","local_a");
-			break;
-		case number_a:	fprintf(file,"%-20s","number_a");
-			break;
-		case string_a:	fprintf(file,"%-20s","string_a");
-			break;
-		case bool_a:	fprintf(file,"%-20s","bool_a");
-			break;
-		case nil_a:	fprintf(file,"%-20s","nil_a");
-			break;
-		case userfunc_a: fprintf(file,"%-20s","userfunc_a");
-			break;
-		case libfunc_a:	fprintf(file,"%-20s","libfunc_a");
-			break;
-		case retval_a:	fprintf(file,"%-20s","retval_a"); 
-			break;
-		
-		case uninitialized_a:	fprintf(file,"%-20s","uninitialized_a");
-			break;
+        switch(arg->type){
+                case label_a:   fprintf(file,"%-25s","label_a");
+                        break;
+                case global_a:  fprintf(file,"%-25s","global_a");
+                        break;
+                case formal_a:  fprintf(file,"%-25s","formal_a");
+                        break;
+                case local_a:   fprintf(file,"%-25s","local_a");
+                        break;
+                case number_a:  fprintf(file,"%-25s","number_a");
+                        break;
+                case string_a:  fprintf(file,"%-25s","string_a");
+                        break;
+                case bool_a:    fprintf(file,"%-25s","bool_a");
+                        break;
+                case nil_a:     fprintf(file,"%-25s","nil_a");
+                        break;
+                case userfunc_a: fprintf(file,"%-25s","userfunc_a");
+                        break;
+                case libfunc_a: fprintf(file,"%-25s","libfunc_a");
+                        break;
+                case retval_a:  fprintf(file,"%-25s","retval_a");
+                        break;
 
-		default:
-			assert(0);
-	}
+                case uninitialized_a:   fprintf(file,"%-25s","uninitialized_a");
+                        break;
+
+                default:
+                        assert(0);
+        }
 
 }
 
 void printInstructions(){
-	FILE* file;
-	file = fopen("instructions.txt","w");
-	
-	if(file == NULL){
-		yyerror("Couldnt make instructions.txt file");
-	}
+        FILE* file;
+        file = fopen("instructions.txt","w");
 
-	fprintf(file, "%-8s %-25s %-20s %-20s %-20s %-20s %-20s %-20s\n", "Instruction#", "opcode", "result", "result value", "arg1", "arg1 value", "arg2", "arg2 value");
-	fprintf(file,"-------------------------------------------------------------------------------------------------------------\n");
-	
-	for(int i = 1; i < currInstr;i++){
-		
+        if(file == NULL){
+                yyerror("Couldnt make instructions.txt file");
+        }
 
-		fprintf(file,"%-8d",i);
-		/*:))))))))))*/
-		switch (instructions[i].opcode){
-				case assign_v:
-					fprintf(file,"%-25s ", "assign");break;
-				case add_v:
-					fprintf(file,"%-25s ","add");break;
-				case sub_v:
-					fprintf(file,"%-25s ","sub");break;
-				case mul_v:
-					fprintf(file,"%-25s ","mul");break;
-				case div_v:
-					fprintf(file,"%-25s ","div");break;
-				case mod_v:
-					fprintf(file,"%-25s ","mod");break;
-				case uminus_v:
-					fprintf(file,"%-25s ","uminus");break;
-				case and_v:
-					fprintf(file,"%-25s ","and");break;
-				case or_v:
-					fprintf(file,"%-25s ","or");break;
-				case not_v:
-					fprintf(file,"%-25s ","not");break;
-				case jeq_v:
-					fprintf(file,"%-25s ","if_eq");break;
-				case jne_v:
-					fprintf(file,"%-25s ","if_noteq");break;
-				case jle_v:
-					fprintf(file,"%-25s ","if_lesseq ");break;
-				case jge_v:
-					fprintf(file,"%-25s ","if_greatereq");break;
-				case jlt_v:
-					fprintf(file,"%-25s ","if_less");break;
-				case jgt_v:
-					fprintf(file,"%-25s ","if_greater");break;
-				case call_v:
-					fprintf(file,"%-25s ","call");break;
-				case pusharg_v:
-					fprintf(file,"%-25s ","pusharg");break;
-				/*case ret_v:
-					fprintf(file,"%-20s ","ret");break;
-				case GETRETVAL:
-					fprintf(file,"%-20s ","getretval");break;*/
-				case funcenter_v:
-					fprintf(file,"%-25s ","funcstart");break;
-				case funcexit_v:
-					fprintf(file,"%-25s ","funcend");break;
-				case newtable_v:
-					fprintf(file,"%-25s ","tablecreate");break;
-				case tablegetelem_v:
-					fprintf(file,"%-25s ","tablegetelem");break;
-				case tablesetelem_v:
-					fprintf(file,"%-25s ","tablesetelem");break;
-				case jmp_v:
-					fprintf(file,"%-25s ","jump");break;
-				default:
-					fprintf(file,"%-25s ","unknownopcode");break;
-			}
-			
-			printEnum(file,&(instructions[i].result));
-			if(instructions[i].result.type != uninitialized_a){
-				fprintf(file,"%-20u ",instructions[i].result.val);
-			}else{
-				fprintf(file,"%-20s ", "-");
-			}
-			
-			printEnum(file,&(instructions[i].arg1));
-			if(instructions[i].arg1.type != uninitialized_a){
-				fprintf(file,"%-20u ",instructions[i].arg1.val);	
-			}else{
-				fprintf(file,"%-20s ", "-");
-			}
+        fprintf(file, "%-8s %-21s %-20s %-31s %-20s %-29s %-20s %-18s\n", "Instruction#", "opcode", "result", "result value", "arg1", "arg1 value", "arg2", "arg2 value");
+fprintf(file,"--------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
 
-			printEnum(file,&(instructions[i].arg2));
-			if(instructions[i].arg2.type != uninitialized_a){
-				fprintf(file,"%-20u ",instructions[i].arg2.val);
-			}else{
-				fprintf(file,"%-20s ", "-");
-			}
-			
+        for(int i = 1; i < currInstr;i++){
 
 
-		
-		
-		fprintf(file,"  \n");
-	}
-	
-	fclose(file);
+                fprintf(file,"%-8d",i);
+                /*:))))))))))*/
+                switch (instructions[i].opcode){
+                                case assign_v:
+                                        fprintf(file,"%-25s ", "assign");break;
+                                case add_v:
+                                        fprintf(file,"%-25s ","add");break;
+                                case sub_v:
+                                        fprintf(file,"%-25s ","sub");break;
+                                case mul_v:
+                                        fprintf(file,"%-25s ","mul");break;
+                                case div_v:
+                                        fprintf(file,"%-25s ","div");break;
+                                case mod_v:
+                                        fprintf(file,"%-25s ","mod");break;
+                                case uminus_v:
+                                        fprintf(file,"%-25s ","uminus");break;
+                                case and_v:
+                                        fprintf(file,"%-25s ","and");break;
+                                case or_v:
+                                        fprintf(file,"%-25s ","or");break;
+                                case not_v:
+                                        fprintf(file,"%-25s ","not");break;
+                                case jeq_v:
+                                        fprintf(file,"%-25s ","if_eq");break;
+                                case jne_v:
+                                        fprintf(file,"%-25s ","if_noteq");break;
+                                case jle_v:
+                                        fprintf(file,"%-25s ","if_lesseq ");break;
+                                case jge_v:
+                                        fprintf(file,"%-25s ","if_greatereq");break;
+                                case jlt_v:
+                                        fprintf(file,"%-25s ","if_less");break;
+                                case jgt_v:
+                                        fprintf(file,"%-25s ","if_greater");break;
+                                case call_v:
+                                        fprintf(file,"%-25s ","call");break;
+                                case pusharg_v:
+                                        fprintf(file,"%-25s ","pusharg");break;
+                                /*case ret_v:
+                                        fprintf(file,"%-20s ","ret");break;
+                                case GETRETVAL:
+                                        fprintf(file,"%-20s ","getretval");break;*/
+                                case funcenter_v:
+                                        fprintf(file,"%-25s ","funcstart");break;
+                                case funcexit_v:
+                                        fprintf(file,"%-25s ","funcend");break;
+                                case newtable_v:
+                                        fprintf(file,"%-25s ","tablecreate");break;
+                                case tablegetelem_v:
+                                        fprintf(file,"%-25s ","tablegetelem");break;
+                                case tablesetelem_v:
+                                        fprintf(file,"%-25s ","tablesetelem");break;
+                                case jmp_v:
+                                        fprintf(file,"%-25s ","jump");break;
+                                default:
+                                        fprintf(file,"%-25s ","unknownopcode");break;
+                        }
+
+                        printEnum(file,&(instructions[i].result));
+                        if(instructions[i].result.type != uninitialized_a){
+                                fprintf(file,"%-25u ",instructions[i].result.val);
+                        }else{
+                                fprintf(file,"%-25s ", "-");
+                        }
+
+                        printEnum(file,&(instructions[i].arg1));
+                        if(instructions[i].arg1.type != uninitialized_a){
+                                fprintf(file,"%-25u ",instructions[i].arg1.val);
+                        }else{
+                                fprintf(file,"%-25s ", "-");
+                        }
+
+                        printEnum(file,&(instructions[i].arg2));
+                        if(instructions[i].arg2.type != uninitialized_a){
+                                fprintf(file,"%-25u ",instructions[i].arg2.val);
+                        }else{
+                                fprintf(file,"%-25s ", "-");
+                        }
+
+
+
+
+
+                fprintf(file,"  \n");
+        }
+
+        fclose(file);
 
 }
 

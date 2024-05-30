@@ -5,5 +5,5 @@ function f(x,y){
 
 
 for(i = 0; i < x; i++){
-	print(f(i,x));
+	f(f(i,x));
 }
