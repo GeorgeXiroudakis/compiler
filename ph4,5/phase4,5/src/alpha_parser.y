@@ -427,7 +427,7 @@ expr: assignexpr {	struct expr* temp;
     				  }
 				 //emit(*$2, newexpr_constbool($1->sym->boolVal), newexpr_constbool($3->sym->boolVal), $$, 0, 0);
 				 }
-    | term { $$ = makeExpression($1->type,$1->sym,NULL,NULL); }
+    | term { $$ = makeExpression($1->type,$1->sym,$1->index,NULL); }
     ;
 
 compop:   GREATERTHAN{$$ = malloc(sizeof(enum iopcode)); *$$ = IF_GREATER;}
@@ -519,7 +519,7 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 			 		emit(SUB,$1,newexpr_constnum(1),$1,0,$1->sym->value.varVal->line);
 				}
 			}
-    | primary {$$ = makeExpression($1->type,$1->sym,NULL,NULL);}
+    | primary {$$ = makeExpression($1->type,$1->sym, $1->index,NULL);}
     ;
 
 assignexpr: lvalue EQUAL expr {
@@ -560,14 +560,14 @@ assignexpr: lvalue EQUAL expr {
 											//$1->type = $3->type;
 				
 										/*	emit(ASSIGN,$3, NULL, $1,0,0);
-											$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
+											$$ = makeExpression(assignexpr_e,$1->sym,$1->index,NULL); 
 											$$->sym = newtemp();
 											$$->sym->gramType = $3->sym->gramType;
 										*/	
 											
 											if($3->type == boolexpr_e){
 												
-												$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
+												$$ = makeExpression(assignexpr_e,$1->sym,$1->index,NULL); 
 												$$->sym = newtemp();
 												$$->sym->gramType = $3->sym->gramType;
 												
@@ -580,7 +580,7 @@ assignexpr: lvalue EQUAL expr {
 											 	
 											 } else {
 											 	emit(ASSIGN, $3, NULL, $1, 0, 0);
-											 	$$ = makeExpression(assignexpr_e,$1->sym,NULL,NULL); 
+											 	$$ = makeExpression(assignexpr_e,$1->sym,$1->index,NULL); 
 												$$->sym = newtemp();
 												$$->sym->gramType = $3->sym->gramType;
 											 	emit(ASSIGN, $1, NULL, $$, 0, 0);
@@ -596,9 +596,9 @@ assignexpr: lvalue EQUAL expr {
 
 primary: lvalue {$$ = emit_iftableitem($1);}
        | call
-       | objectdef  {$$ = makeExpression($1->type,$1->sym,NULL,NULL);} 
+       | objectdef  {$$ = makeExpression($1->type,$1->sym,$1->index,NULL);} 
        | PARENTHOPEN funcdef PARENTHCLOSE { $$ = makeExpression($2->type,$2,NULL,NULL); }
-       | const {$$ = makeExpression($1->type,$1->sym,NULL,NULL); }
+       | const {$$ = makeExpression($1->type,$1->sym,$1->index,NULL); }
        ;
 
 lvalue: IDENTIFIER		{
@@ -674,7 +674,7 @@ lvalue: IDENTIFIER		{
 					else if(res->gramType == gr_funcaddr) $$ = makeExpression(programfunc_e,res,NULL,NULL);
 				  }
 				}
-      | member {$$ = makeExpression($1->type,$1->sym, NULL, NULL);}
+      | member {$$ = makeExpression($1->type,$1->sym, $1->index, NULL);}
       ;
 
 call_lvalue: IDENTIFIER				{
@@ -715,7 +715,7 @@ call_lvalue: IDENTIFIER				{
 								}
 					}
 								
-	   | member {$$ = makeExpression($1->type,$1->sym,0,0);}
+	   | member {$$ = makeExpression($1->type,$1->sym,$1->index,0);}
 	   ;
 
 member: lvalue DOT IDENTIFIER {$$ = member_item($1,$3);}
@@ -732,9 +732,9 @@ member: lvalue DOT IDENTIFIER {$$ = member_item($1,$3);}
       					       }
       ;
 
-call: call PARENTHOPEN elist PARENTHCLOSE {
-    					   $$ = makeCall($$,$3);
-					   elistFlag = 0;
+call: call PARENTHOPEN {elistFlag = 0;}elist PARENTHCLOSE {
+    					   $$ = makeCall($$,$4);
+						//elistFlag = 0; 
 					  }
     | call_lvalue callsuffix {
     			  $1 = emit_iftableitem($1);
@@ -750,7 +750,7 @@ call: call PARENTHOPEN elist PARENTHCLOSE {
 			  } 
 			 
 			  $$ = makeCall($1,$2->elist);
-			  elistFlag = 0;
+			  //elistFlag = 0;
     			 }
     | lvalue methodcall {$1 = emit_iftableitem($1); 
 			  	if($2->method){
@@ -765,14 +765,14 @@ call: call PARENTHOPEN elist PARENTHCLOSE {
 			  } 
 			 
 			  $$ = makeCall($1,$2->elist);
-			  elistFlag = 0;
+			  //elistFlag = 0;
 
 			  }
     		
-    | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN elist PARENTHCLOSE {
+    | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN {elistFlag = 0;}elist PARENTHCLOSE {
     								      	struct expr* func = makeExpression(programfunc_e,$2,NULL,NULL);
-									$$ = makeCall(func,$5);
-									elistFlag = 0;
+									$$ = makeCall(func,$6);
+									//elistFlag = 0;
 								      }
     ;
 
@@ -780,10 +780,10 @@ callsuffix: normcall { $$ = $1; }
 	  | methodcall { $$ = $1; }
 	  ;
 
-normcall: PARENTHOPEN elist PARENTHCLOSE {elistFlag = 0;$$ = malloc(sizeof(struct call)); $$->elist = $2; $$->method  = 0; $$->name = NULL; }
+normcall: PARENTHOPEN {elistFlag = 0;} elist PARENTHCLOSE {/*elistFlag = 0;*/$$ = malloc(sizeof(struct call)); $$->elist = $3; $$->method  = 0; $$->name = NULL; }
 	;
 
-methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN elist PARENTHCLOSE {elistFlag = 0; $$ = malloc(sizeof(struct call)); $$->elist = $4; $$->method  = 1; $$->name = strdup($2); }
+methodcall: DOUBLEDOT IDENTIFIER PARENTHOPEN {elistFlag = 0;}elist PARENTHCLOSE {/*elistFlag = 0;*/ $$ = malloc(sizeof(struct call)); $$->elist = $5; $$->method  = 1; $$->name = strdup($2); }
 	  ;
 
 elist: expr	 {
@@ -889,13 +889,13 @@ indexed: indexedelem   {
         ;
 
 
-objectdef: SQBRACKETOPEN elist SQBRACKETCLOSE {
-	 							elistFlag = 0;
+objectdef: SQBRACKETOPEN {elistFlag = 0;}elist SQBRACKETCLOSE {
+	 						//	elistFlag = 0;
 								struct expr* t = makeExpression(newtable_e,newtemp(),NULL,NULL); 
 								t->sym->boolVal = 1;
 								emit(TABLECREATE,NULL,NULL,t,0,0);
 								
-								struct exprNode* head = $2;
+								struct exprNode* head = $3;
 								int i = 0;
 								while (head != NULL){
 									emit(TABLESETELEM,newexpr_constnum(i++),head->node,t,0,0);
@@ -1139,36 +1139,34 @@ unfinjmp:{ $$ = nextquadlabel(); emit(JUMP,NULL,NULL,NULL,0,0); }
 forretlabel: { $$ = nextquadlabel(); }
 
 
-forprefix: FOR PARENTHOPEN {currScope++; allocateScopes(currScope); } elist {elistFlag = 0;} SEMICOLON forretlabel expr SEMICOLON {
+forprefix: FOR PARENTHOPEN {currScope++; allocateScopes(currScope); } {elistFlag = 0; } elist {/*elistFlag = 0;*/} SEMICOLON forretlabel expr SEMICOLON {
 	 							       $$ = malloc(sizeof(struct for_labels));
-	 							       $$->test = $7;
+	 							       $$->test = $8;
 								       $$->enter = nextquadlabel();
 								       
-								       if($8->type == boolexpr_e){
+								       if($9->type == boolexpr_e){
 							
-										patchlist($8->truelist, nextquadlabel());
-										emit(ASSIGN,newexpr_constbool(1),NULL,$8,0,0);
+										patchlist($9->truelist, nextquadlabel());
+										emit(ASSIGN,newexpr_constbool(1),NULL,$9,0,0);
 						  				emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
-						  				patchlist($8->falselist, nextquadlabel());
-						  				emit(ASSIGN,newexpr_constbool(0),NULL,$8,0,0);
+						  				patchlist($9->falselist, nextquadlabel());
+						  				emit(ASSIGN,newexpr_constbool(0),NULL,$9,0,0);
 									 	
 									 }
-								       
-								       
-								       emit(IF_EQ,$8,newexpr_constbool(1),NULL,nextquadlabel() + 5,0);
-								      }
-forpostfix: forprefix unfinjmp elist PARENTHCLOSE {currScope--; elistFlag = 0;} unfinjmp loopstmt unfinjmp {
-   								    	   patchlabel($1->enter,$6 + 1);
+								       emit(IF_EQ,$9,newexpr_constbool(1),NULL,nextquadlabel() + 5,0);
+								}
+forpostfix: forprefix unfinjmp {elistFlag = 0;}elist PARENTHCLOSE {currScope--; /*elistFlag = 0;*/} unfinjmp loopstmt unfinjmp {
+   								    	   patchlabel($1->enter,$7 + 1);
 								    	   patchlabel($2,nextquadlabel());
-								    	   patchlabel($6,$1->test);
-								    	   patchlabel($8,$2 + 1);
+								    	   patchlabel($7,$1->test);
+								    	   patchlabel($9,$2 + 1);
 
  									   $$ = make_stmt(); 
-									   $$->breakList = $7->breakList;
-									   $$->contList = $7->contList; 
+									   $$->breakList = $8->breakList;
+									   $$->contList = $8->contList; 
 
-								    	   patchlist($7->breakList, nextquadlabel());
-								    	   patchlist($7->contList, $2 + 1);
+								    	   patchlist($8->breakList, nextquadlabel());
+								    	   patchlist($8->contList, $2 + 1);
    								  	 }
 
 for: forpostfix {
@@ -1663,9 +1661,12 @@ int popandtop(void){
 
 	if(sos_top == sos_bottom){
 		//free(sos_top);
+		int temp = sos_top->offset;
+
 		sos_top = 0;
 		sos_bottom = 0;
-		return 0;
+		
+		return temp;
 	}
 	
 	struct scopeoffsetstack* temp = sos_bottom;
