@@ -1,0 +1,10 @@
+x = 5;
+y = 3;
+
+if(x or y){
+	x = false;
+}else{
+	print(bad);
+}
+
+x = true;

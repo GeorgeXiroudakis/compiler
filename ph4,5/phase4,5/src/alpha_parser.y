@@ -404,18 +404,31 @@ expr: assignexpr {	struct expr* temp;
 						 if(*$2 != IF_EQ && *$2 != IF_NOTEQ) yyerror("Invalid type for compare expression");
 				   	  }else if($3->sym->gramType != gr_integer && $3->sym->gramType != gr_constinteger && $3->sym->gramType != gr_constreal && $3->sym->gramType  != gr_real){
 						if(*$2 != IF_EQ && *$2 != IF_NOTEQ) yyerror("Invalid type for compare expression");
-					  }else{
-    					 
+    					  } 
 	    					  $$->truelist = newlist(nextquadlabel());
 	    					  $$->falselist = newlist(nextquadlabel()+1);
 	    					  
 	    					  emit(*$2,$1,$3,NULL,0,0);
 						  emit(JUMP,NULL,NULL,NULL,0,0); 
 					  
-					  }
+					  
 					 }
     | expr boolop quadsave expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
-    				 
+				 
+				 /* if($1->type != boolexpr_e){
+				  	$1->truelist = newlist(nextquadlabel());
+					$1->falselist = newlist(nextquadlabel() + 1);
+					emit(IF_EQ,$1,newexpr_constbool(1),NULL,0,0);
+					emit(JUMP,NULL,NULL,NULL,0,0);
+				  }*/
+
+				  if($4->type != boolexpr_e){
+				  	$4->truelist = newlist(nextquadlabel());
+					$4->falselist = newlist(nextquadlabel() + 1);
+					emit(IF_EQ,$4,newexpr_constbool(1),NULL,0,0);
+					emit(JUMP,NULL,NULL,NULL,0,0);
+				  }
+
     				  if(*$2 == OP_AND){
     				  	patchlist($1->truelist, $3);
     				  	$$->truelist = $4->truelist;
@@ -427,7 +440,10 @@ expr: assignexpr {	struct expr* temp;
     				  }
 				 //emit(*$2, newexpr_constbool($1->sym->boolVal), newexpr_constbool($3->sym->boolVal), $$, 0, 0);
 				 }
-    | term { $$ = makeExpression($1->type,$1->sym,$1->index,NULL); }
+    | term { $$ = makeExpression($1->type,$1->sym,$1->index,NULL);
+    		$$->truelist = $1->truelist;
+		$$->falselist = $1->falselist;
+	   }
     ;
 
 compop:   GREATERTHAN{$$ = malloc(sizeof(enum iopcode)); *$$ = IF_GREATER;}
@@ -453,13 +469,24 @@ boolop:   AND{$$ = malloc(sizeof(enum iopcode)); *$$ = OP_AND;}
 term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
     | MINUS expr {checkArithmetic($2);
     		  $$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
-		  emit(UMINUS,$2,NULL,$$,0,$2->sym->value.varVal->line);
+		  emit(UMINUS,$2,NULL,$$,0,0);
 		 }
     | NOT expr {
-    	       	$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
-		/*$$->truelist = $2->falselist;
-		$$->falselist = $2->truelist;*/
-		emit(OP_NOT,$2,NULL,$$,0,$2->sym->value.varVal->line);
+		
+		if($2->type == boolexpr_e){
+			printf("boo\n");
+			$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
+			$$->truelist = $2->falselist;
+			$$->falselist = $2->truelist;
+			//emit(OP_NOT,$2,NULL,$$,0,0);
+		}else{
+			printf("nah bro\n");
+			$2->truelist = newlist(nextquadlabel());
+			$2->falselist = newlist(nextquadlabel() + 1);
+			emit(IF_EQ,$2,newexpr_constbool(1),NULL,0,0);
+			emit(JUMP,NULL,NULL,NULL,0,0);
+			
+		}
 	       }
     | PLUSPLUS lvalue {checkArithmetic($2);
 		       	if($2->type == tableitem_e){
@@ -467,10 +494,10 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 				emit(ADD,$$,newexpr_constnum(1),$$,0,0);
 				emit(TABLESETELEM,$2,$2->index,$$,0,0);
 			}else{
-				emit(ADD,$2,newexpr_constnum(1),$2,0,$2->sym->value.varVal->line);
+				emit(ADD,$2,newexpr_constnum(1),$2,0,0);
 				$$ = makeExpression(arithexpr_e,newtemp(),NULL,NULL);
 				//$$->sym = newtemp();
-				emit(ASSIGN,$2,NULL,$$,0,$2->sym->value.varVal->line);
+				emit(ASSIGN,$2,NULL,$$,0,0);
 			}
 		      }
     | lvalue PLUSPLUS {
@@ -519,7 +546,10 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 			 		emit(SUB,$1,newexpr_constnum(1),$1,0,$1->sym->value.varVal->line);
 				}
 			}
-    | primary {$$ = makeExpression($1->type,$1->sym, $1->index,NULL);}
+    | primary {$$ = makeExpression($1->type,$1->sym, $1->index,NULL);
+    	       $$->truelist = $1->truelist;
+	       $$->falselist = $1->falselist;
+	      }
     ;
 
 assignexpr: lvalue EQUAL expr {
@@ -1515,7 +1545,7 @@ struct expr* makeExpression(enum expr_en type, SymbolTableEntry_t* sym, struct e
 	newExpr->sym = sym;
 	newExpr->index = index;
 	newExpr->next = next;
-	
+ 
 	newExpr->truelist = 0;
 	newExpr->falselist = 0;
 
