@@ -261,22 +261,21 @@ Function_t* userfuncs_getfunc(unsigned index);
 static void avm_initstack(void);
 struct avm_table* avm_tablenew(void);
 void avm_tabledestroy(struct avm_table*);
-struct avm_memcell* avm_tablegetelem(struct avm_memcell* key);
+struct avm_memcell* avm_tablegetelem(struct avm_table*, struct avm_memcell* key);
 void avm_tablesetelem(struct avm_memcell* key, struct avm_memcell* value);
 void avm_tableincrefcounter(struct avm_table* t);
 void avm_tabledecrefcounter(struct avm_table* t);
 void avm_tablebucketsinit(struct avm_table_bucket** p);
-void avm_memcellclear(struct avm_memcell* m);
 void avm_tablebucketsdestroy(struct avm_table_bucket** p);
 void avm_tabledestroy(struct avm_table*);
 struct avm_memcell* avm_translate_operand(struct vmarg* arg,struct avm_memcell* reg);
 
 void execute_assign(struct instruction*);
-void execute_add(struct instruction*);
+/*void execute_add(struct instruction*);
 void execute_sub(struct instruction*);
 void execute_mul(struct instruction*);
 void execute_div(struct instruction*);
-void execute_mod(struct instruction*);
+void execute_mod(struct instruction*);*/
 void execute_jeq(struct instruction*);
 void execute_jne(struct instruction*);
 void execute_jle(struct instruction*);
@@ -391,26 +390,10 @@ arithmetic_func_t arithmeticFuncs[] = {
 	mod_impl
 };
 
-void execute_arithmetic(struct instruction* t){
-	struct avm_memcell* lv = avm_translate_operand(&(t->result), (struct avm_memcell*) 0);
-	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1), (struct avm_memcell*) 0);
-	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2), (struct avm_memcell*) 0);
+unsigned int avm_table_hash(const char *pcKey);
 
-	assert(lv && (&stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
-	assert(rv1 && rv2);
 
-	if(rv1->type != number_m || rv2->type != number_m){
-		avm_error("Not a number in arithmetic!",NULL);
-		executionFinished = 1;
 
-	}
-	else {
-		arithmetic_func_t op = arithmeticFuncs[t->opcode - add_v];
-		avm_memcellclear(lv);
-		lv->type = number_m;
-		lv->data.numVal = (*op)(rv1->data.numVal,rv2->data.numVal);
-	}
-}
 
 /* END OF PHASE 5 */
 %}
@@ -534,7 +517,6 @@ stmt: expr SEMICOLON {$$ = make_stmt();}
 		    				yyerror("Illegal continue: not in a loop");
 		    			}
     				}
-
 
 stmts: stmts stmt{
 			$$ = make_stmt();
@@ -2721,11 +2703,12 @@ void execute_assign(struct instruction* t){
 	avm_assign(lv,rv);
 }
 
-void execute_add(struct instruction* t){}
+/*void execute_add(struct instruction* t){}
 void execute_sub(struct instruction* t){}
 void execute_mul(struct instruction* t){}
 void execute_div(struct instruction* t){}
-void execute_mod(struct instruction* t){}
+void execute_mod(struct instruction* t){}*/
+
 void execute_jeq(struct instruction* t){}
 void execute_jne(struct instruction* t){}
 void execute_jle(struct instruction* t){}
@@ -2748,7 +2731,7 @@ void execute_call(struct instruction* t){
 
 		case string_m: {avm_calllibfunc(func->data.strVal); break;}
 		case libfunc_m: {avm_calllibfunc(func->data.libfuncVal); break;}
-		case table_m: {avm_callfunctor(func->data.tableVal); break;}
+		case table_m: {avm_call_functor(func->data.tableVal); break;}
 
 		default: {
 			char* s = avm_tostring(func);
@@ -2875,18 +2858,18 @@ unsigned avm_get_envvalue(unsigned i){
 }
 
 void avm_calllibfunc(char* id){
-	library_func_t f = avm_getlibraryfunc(id);
-	if(!f){
+	SymbolTableEntry_t* libFuncEntry = scopeLookUp(0, id);
+	if(libFuncEntry == NULL || libFuncEntry->unionType != unionFunc ||libFuncEntry->value.funcVal == NULL){
 		avm_error("unsupported lib func '%s' called!",id);
 		executionFinished = 1;
-
 	}
 	else{
+		Function_t* f = libFuncEntry->value.funcVal;
 		/*Notice that enter function and exit function are called manually!*/
 		avm_callsaveenviroment();
 		topsp = top; /*Enter function sequence. No stack locals. */
 		totalActuals = 0;
-		(*f)();	/*Call library functions*/
+		// (*f)();	/*Call library functions*/   TODO: to call the actual library function we implemented;
 		if(!executionFinished) /*An error may naturally occur inside*/
 			execute_funcexit((struct instruction*) 0); /*Return sequence*/
 	}
@@ -2929,6 +2912,28 @@ char* avm_tostring(struct avm_memcell* m){
 	return (*tostringFuncs[m->type])(m);
 }
 
+void execute_arithmetic(struct instruction* t){
+	struct avm_memcell* lv = avm_translate_operand(&(t->result), (struct avm_memcell*) 0);
+	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1), (struct avm_memcell*) 0);
+	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2), (struct avm_memcell*) 0);
+
+	assert(lv && (&stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
+	assert(rv1 && rv2);
+
+	if(rv1->type != number_m || rv2->type != number_m){
+		avm_error("Not a number in arithmetic!",NULL);
+		executionFinished = 1;
+
+	}
+	else {
+		arithmetic_func_t op = arithmeticFuncs[t->opcode - add_v];
+		avm_memcellclear(lv);
+		lv->type = number_m;
+		lv->data.numVal = (*op)(rv1->data.numVal,rv2->data.numVal);
+	}
+}
+
+
 double add_impl(double x,double y) { return x + y; }
 double sub_impl(double x,double y) { return x - y; }
 double mul_impl(double x,double y) { return x * y; }
@@ -2945,6 +2950,69 @@ double mod_impl(double x,double y) {
 	}
 	return ((unsigned) x) % ((unsigned) y);
 }
+
+void avm_memcellclear (struct avm_memcell* m){
+	if(m->type != undef_m){
+		memclear_func_t f = memclearFuncs[m->type];
+
+		if (f)
+			(*f)(m);
+
+		m->type = undef_m;
+	
+	}
+}
+
+void avm_error(char* format,char* v){
+	fprintf(stderr, RED "AVM:EROR at runtime: %s about %s" RESET, format, v);
+	executionFinished = 1;
+}
+
+void avm_warning(char* format,char* v){
+	fprintf(stderr, PURPLE "AVM:EROR at runtime: %s about %s" RESET, format, v);
+}
+
+
+Function_t* avm_getfuncinfo(unsigned address){
+	return userfuncs_getfunc(address);
+}
+
+unsigned int avm_table_hash(const char *pcKey){
+	size_t ui;
+	unsigned int uiHash = 0U;
+
+	for (ui = 0U; pcKey[ui] != '\0'; ui++)
+		uiHash = uiHash * HASH_MULTIPLIER + pcKey[ui];
+	return uiHash % AVM_TABLE_HASHSIZE;
+}
+
+struct avm_table_bucket* getTableBucket(struct avm_table* table, char* keyNAME, struct avm_memcell* keyMEM){
+	if(keyMEM->type != number_m && keyMEM->type != string_m){ avm_error("Invalid key type", "tablegetelem"); return NULL; }
+	struct avm_table_bucket* list = (keyMEM->type == number_m) ? table->numIndexed[avm_table_hash(keyNAME)] : table->strIndexed[avm_table_hash(keyNAME)];
+	
+
+	if(keyMEM->type == number_m){
+
+		while(list != NULL){
+			if(list->key.data.numVal == keyMEM->data.numVal)return list;
+		
+			list = list->next;
+		}
+	}else{
+		while(list != NULL){
+			if(strcmp(list->key.data.strVal, keyMEM->data.strVal) == 0)return list;
+		
+			list = list->next;
+		}
+	}
+
+	return NULL;
+}
+
+struct avm_memcell* avm_tablegetelem(struct avm_table* table, struct avm_memcell* key){
+	
+}
+
 
 /* END OF PHASE 5 */
 

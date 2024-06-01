@@ -1,5 +1,6 @@
 #define RESET   "\033[0m"
 #define RED     "\033[31m"
+#define PURPLE     "\033[35m"
 #define unionVar   0
 #define unionFunc  1
 
@@ -294,8 +295,12 @@ struct avm_table{
 #define AVM_SAVEDTOP_OFFSET   2
 #define AVM_SAVEDTOPSP_OFFSET 1
 
+extern void execute_arithmetic(struct instruction* t);
+
 #define execute_add execute_arithmetic
 #define execute_sub execute_arithmetic
 #define execute_mul execute_arithmetic
 #define execute_div execute_arithmetic
 #define execute_mod execute_arithmetic
+
+#define HASH_MULTIPLIER 65599
