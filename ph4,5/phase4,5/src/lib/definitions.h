@@ -174,8 +174,7 @@ struct scopeoffsetstack {
 	struct scopeoffsetstack* next;
 };
 
-/* PHASE 4,5 */
-
+/* PHASE 4 */
 enum vmopcode {
 	assign_v,	add_v,		sub_v,
 	mul_v,		div_v,		mod_v,
@@ -208,6 +207,17 @@ struct vmarg {
 	unsigned	val;
 };
 
+struct incomplete_jump	{
+	unsigned instrNo;
+	unsigned iaddress;
+	struct incomplete_jump* next;
+};
+
+struct func_stack {
+	Function_t* func;
+	struct func_stack* next;
+};
+
 struct instruction {
 	enum vmopcode	opcode;
 	struct vmarg	result;
@@ -221,6 +231,14 @@ struct userfunc {
 	unsigned	localSize;
 	char*		id;
 };
+
+#define EXPAND_SIZE_INSTR 1024
+#define CURR_SIZE_INSTR (totalInstr * sizeof(struct instruction))
+#define NEW_SIZE_INSTR (EXPAND_SIZE_INSTR * sizeof(struct instruction) + CURR_SIZE_INSTR)
+
+/* END OF PHASE 4 */
+
+/* PHASE 5 */
 
 enum avm_memcell_t {
 	number_m	=0,
@@ -265,19 +283,19 @@ struct avm_table{
 #define AVM_STACKSIZE 4096
 #define AVM_WIPEOUT(m)	memset(&(m), 0, sizeof(m))
 
-struct incomplete_jump	{
-	unsigned instrNo;
-	unsigned iaddress;
-	struct incomplete_jump* next;
-};
+#define AVM_STACKENV_SIZE 4
 
-struct func_stack {
-	Function_t* func;
-	struct func_stack* next;
-};
+#define AVM_MAX_INSTRUCTIONS (unsigned) nop_v
 
-#define EXPAND_SIZE_INSTR 1024
-#define CURR_SIZE_INSTR (totalInstr * sizeof(struct instruction))
-#define NEW_SIZE_INSTR (EXPAND_SIZE_INSTR * sizeof(struct instruction) + CURR_SIZE_INSTR)
+#define AVM_ENDING_PC codeSize
 
+#define AVM_NUMACTUALS_OFFSET 4
+#define AVM_SAVEDPC_OFFSET    3
+#define AVM_SAVEDTOP_OFFSET   2
+#define AVM_SAVEDTOPSP_OFFSET 1
 
+#define execute_add execute_arithmetic
+#define execute_sub execute_arithmetic
+#define execute_mul execute_arithmetic
+#define execute_div execute_arithmetic
+#define execute_mod execute_arithmetic

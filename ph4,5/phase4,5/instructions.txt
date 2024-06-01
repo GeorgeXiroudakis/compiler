@@ -2,20 +2,6 @@ Instruction# opcode                result               result value            
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 1       assign                    global_a                 12                        number_a                 0                         -                        -                           
 2       assign                    global_a                 13                        global_a                 12                        -                        -                           
-3       assign                    global_a                 14                        number_a                 1                         -                        -                           
-4       assign                    global_a                 15                        global_a                 14                        -                        -                           
-5       if_eq                     label_a                  7                         global_a                 14                        bool_a                   1                           
-6       jump                      label_a                  9                         -                        -                         -                        -                           
-7       assign                    global_a                 16                        bool_a                   1                         -                        -                           
-8       jump                      label_a                  10                        -                        -                         -                        -                           
-9       assign                    global_a                 16                        bool_a                   0                         -                        -                           
-10      if_eq                     label_a                  12                        global_a                 16                        bool_a                   1                           
-11      jump                      label_a                  15                        -                        -                         -                        -                           
-12      assign                    global_a                 12                        bool_a                   0                         -                        -                           
-13      assign                    global_a                 17                        global_a                 12                        -                        -                           
-14      jump                      label_a                  18                        -                        -                         -                        -                           
-15      pusharg                   -                        -                         global_a                 18                        -                        -                           
-16      call                      -                        -                         libfunc_a                0                         -                        -                           
-17      assign                    global_a                 19                        retval_a                 4294967295                -                        -                           
-18      assign                    global_a                 12                        bool_a                   1                         -                        -                           
-19      assign                    global_a                 20                        global_a                 12                        -                        -                           
+3       mul                       global_a                 15                        global_a                 12                        number_a                 1                           
+4       assign                    global_a                 14                        global_a                 15                        -                        -                           
+5       assign                    global_a                 16                        global_a                 14                        -                        -                           

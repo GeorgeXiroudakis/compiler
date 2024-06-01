@@ -112,7 +112,7 @@ void push_scopeoffset(unsigned currscopeoff);
 int  popandtop(void);
 
 
-/* PHASE 4,5 */
+/* PHASE 4 */
 
 double*			numConsts;
 unsigned		totalNumConsts;
@@ -122,7 +122,7 @@ char**			nameLibfuncs;
 unsigned		totalNamedLibfuncs;
 struct userfunc*	userFuncs;
 unsigned		totalUserFuncs;
-struct avm_memcell stack[AVM_STACKSIZE];
+
 
 struct incomplete_jump* ij_head = (struct incomplete_jump*)0;
 unsigned		ij_total = 0;
@@ -151,17 +151,6 @@ struct func_stack* head = NULL;
 
 void expand_instructions();
 
-static void avm_initstack(void);
-struct avm_table* avm_tablenew(void);
-void avm_tabledestroy(struct avm_table*);
-struct avm_memcell* avm_tablegetelem(struct avm_memcell* key);
-void avm_tablesetelem(struct avm_memcell* key, struct avm_memcell* value);
-void avm_tableincrefcounter(struct avm_table* t);
-void avm_tabledecrefcounter(struct avm_table* t);
-void avm_tablebucketsinit(struct avm_table_bucket** p);
-void avm_memcellclear(struct avm_memcell* m);
-void avm_tablebucketsdestroy(struct avm_table_bucket** p);
-void avm_tabledestroy(struct avm_table*);
 unsigned consts_newstring(char* s);
 unsigned consts_newnumber(double n);
 unsigned libfuncs_newused(char* s);
@@ -243,6 +232,187 @@ generator_func_t generators[] = {
 
 void generate_instructions(void);
 
+/* END OF PHASE 4 */
+
+/* PHASE 5 */
+
+
+typedef void (*memclear_func_t) (struct avm_memcell*);
+typedef void (*execute_func_t) (struct instruction*);
+
+struct avm_memcell ax, bx, cx;
+struct avm_memcell retval;
+unsigned top, topsp;
+unsigned char executionFinished = 0;
+unsigned pc = 0;
+unsigned currLine = 0;
+unsigned codeSize = 0;
+struct instruction* code = (struct instruction*) 0;
+unsigned totalActuals = 0;
+
+
+struct avm_memcell stack[AVM_STACKSIZE];
+
+double consts_getnumber(unsigned index);
+char* consts_getstring(unsigned index);
+char* libfuncs_getused(unsigned index);
+Function_t* userfuncs_getfunc(unsigned index);
+
+static void avm_initstack(void);
+struct avm_table* avm_tablenew(void);
+void avm_tabledestroy(struct avm_table*);
+struct avm_memcell* avm_tablegetelem(struct avm_memcell* key);
+void avm_tablesetelem(struct avm_memcell* key, struct avm_memcell* value);
+void avm_tableincrefcounter(struct avm_table* t);
+void avm_tabledecrefcounter(struct avm_table* t);
+void avm_tablebucketsinit(struct avm_table_bucket** p);
+void avm_memcellclear(struct avm_memcell* m);
+void avm_tablebucketsdestroy(struct avm_table_bucket** p);
+void avm_tabledestroy(struct avm_table*);
+struct avm_memcell* avm_translate_operand(struct vmarg* arg,struct avm_memcell* reg);
+
+void execute_assign(struct instruction*);
+void execute_add(struct instruction*);
+void execute_sub(struct instruction*);
+void execute_mul(struct instruction*);
+void execute_div(struct instruction*);
+void execute_mod(struct instruction*);
+void execute_jeq(struct instruction*);
+void execute_jne(struct instruction*);
+void execute_jle(struct instruction*);
+void execute_jge(struct instruction*);
+void execute_jlt(struct instruction*);
+void execute_jgt(struct instruction*);
+void execute_call(struct instruction*);
+void execute_pusharg(struct instruction*);
+void execute_funcenter(struct instruction*);
+void execute_funcexit(struct instruction*);
+void execute_newtable(struct instruction*);
+void execute_tablegetelem(struct instruction*);
+void execute_tablesetelem(struct instruction*);
+void execute_nop(struct instruction*);
+
+execute_func_t executeFuncs[] = {
+	execute_assign,
+	execute_add,
+	execute_sub,
+	execute_mul,
+	execute_div,
+	execute_mod,
+	execute_jeq,
+	execute_jne,
+	execute_jle,
+	execute_jge,
+	execute_jlt,
+	execute_jgt,
+	execute_call,
+	execute_pusharg,
+	execute_funcenter,
+	execute_funcexit,
+	execute_newtable,
+	execute_tablegetelem,
+	execute_tablesetelem,
+	execute_nop
+};
+
+void execute_cycle(void);
+void memclear_string(struct avm_memcell* m);
+void memclear_table(struct avm_memcell* m);
+void avm_memcellclear(struct avm_memcell* m);
+
+memclear_func_t memclearFuncs[] = {
+	0, /*number*/
+	memclear_string,
+	0, /*bool*/
+	memclear_table,
+	0, /*userfunc*/
+	0, /*libfunc*/
+	0, /*nil*/
+	0  /*undef*/
+};
+
+void avm_warning(char* format,char* v);
+void avm_assign(struct avm_memcell* lv,struct avm_memcell* rv);
+
+void avm_error(char* format,char* v);
+char* avm_tostring(struct avm_memcell* m); /*Caller frees.*/
+void avm_calllibfunc(char* funcName);
+void avm_callsaveenviroment(void);
+void avm_call_functor(struct avm_table* t);
+void avm_push_table_arg(struct avm_table* t); /*latter*/
+void avm_dec_top(void);
+void avm_push_envvalue(unsigned val);
+Function_t* avm_getfuncinfo(unsigned address);
+unsigned avm_get_envvalue(unsigned i);
+unsigned avm_totalactuals(void);
+struct avm_memcell* avm_getactual(unsigned i);
+//void avm_registerlibfunc(char* id,library_func_t addr); TODO wat
+void libfunc_print(void);
+void avm_call_functor(struct avm_table* t);
+
+typedef char* (*tostring_func_t) (struct avm_memcell*m);
+
+char* number_tostring(struct avm_memcell* m);
+char* string_tostring(struct avm_memcell* m);
+char* bool_tostring(struct avm_memcell* m);
+char* table_tostring(struct avm_memcell* m);
+char* userfunc_tostring(struct avm_memcell* m);
+char* libfunc_tostring(struct avm_memcell* m);
+char* nil_tostring(struct avm_memcell* m);
+char* undef_tostring(struct avm_memcell* m);
+
+tostring_func_t tostringFuncs[] = {
+	number_tostring,
+	string_tostring,
+	bool_tostring,
+	table_tostring,
+	userfunc_tostring,
+	libfunc_tostring,
+	nil_tostring,
+	undef_tostring
+
+};
+
+char* avm_tostring(struct avm_memcell* m);
+
+typedef double (*arithmetic_func_t) (double x,double y);
+
+double add_impl(double x,double y);
+double sub_impl(double x,double y);
+double mul_impl(double x,double y);
+double div_impl(double x,double y);
+double mod_impl(double x,double y);
+
+arithmetic_func_t arithmeticFuncs[] = {
+	add_impl,
+	sub_impl,
+	mul_impl,
+	div_impl,
+	mod_impl
+};
+
+void execute_arithmetic(struct instruction* t){
+	struct avm_memcell* lv = avm_translate_operand(&(t->result), (struct avm_memcell*) 0);
+	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1), (struct avm_memcell*) 0);
+	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2), (struct avm_memcell*) 0);
+
+	assert(lv && (&stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
+	assert(rv1 && rv2);
+
+	if(rv1->type != number_m || rv2->type != number_m){
+		avm_error("Not a number in arithmetic!",NULL);
+		executionFinished = 1;
+
+	}
+	else {
+		arithmetic_func_t op = arithmeticFuncs[t->opcode - add_v];
+		avm_memcellclear(lv);
+		lv->type = number_m;
+		lv->data.numVal = (*op)(rv1->data.numVal,rv2->data.numVal);
+	}
+}
+
+/* END OF PHASE 5 */
 %}
 
 %start program
@@ -1733,59 +1903,6 @@ unsigned nextinstructionlabel(void){
 	return currInstr;
 }
 
-static void avm_initstack(void){
-	for(unsigned i = 0;i < AVM_STACKSIZE;++i){
-		AVM_WIPEOUT(stack[i]);
-		stack[i].type = undef_m;
-	}
-}
-
-void avm_tableincrefcounter(struct avm_table* t){
-	++t->refCounter;
-}
-
-void avm_tabledecrefcounter(struct avm_table* t){
-	assert(t->refCounter > 0);
-	if(!--t->refCounter){
-		avm_tabledestroy(t);
-	}
-}
-
-void avm_tablebucketsinit(struct avm_table_bucket** p){
-	for(unsigned i = 0;i < AVM_TABLE_HASHSIZE;++i){
-		p[i] = (struct avm_table_bucket*)0;
-	}
-}
-
-struct avm_table* avm_tablenew(void){
-	struct avm_table* t = (struct avm_table*) malloc(sizeof(struct avm_table));
-	AVM_WIPEOUT(*t);
-	
-	t->refCounter = t->total = 0;
-	avm_tablebucketsinit(t->numIndexed);
-	avm_tablebucketsinit(t->strIndexed);
-	return t;
-}
-
-void avm_tablebucketsdestroy(struct avm_table_bucket** p){
-	for(unsigned i = 0; i < AVM_TABLE_HASHSIZE;++i){
-		for(struct avm_table_bucket* b = *p; b;){
-			struct avm_table_bucket* del = b;
-			b = b->next;
-			//avm_memcellclear(&del->key); TODO PHASE 5
-			//avm_memcellclear(&del->value);
-			free(del);
-		}
-		p[i] = (struct avm_table_bucket*) 0;
-	}
-}
-
-
-void avm_tabledestroy(struct avm_table* t){
-	avm_tablebucketsdestroy(t->strIndexed);
-	avm_tablebucketsdestroy(t->numIndexed);
-	free(t);
-}
 
 void push_funcstack(Function_t* func){
 	
@@ -2091,7 +2208,7 @@ void emit_instruction(struct instruction* i){
 	new->arg1 = i->arg1;
 	new->arg2 = i->arg2;
 	new->result = i->result;
-	//new->srcLine = i->srcLine;
+	//new->srcLine = i->srcLine; TODO le line
 	tcodeSize++;
 }
 
@@ -2142,29 +2259,29 @@ void generate_IF_LESS (struct quad* q) { generate_relational(jlt_v,q); }
 void generate_IF_LESSEQ (struct quad* q) { generate_relational(jle_v,q); }
 
 
-/*void generate_NOT (struct quad* q) { 
-	q.taddress = nextinstructionlabel();
+void generate_NOT (struct quad* q) { 
+	q->taddress = nextinstructionlabel();
 	struct instruction* t;
 
-	t.opcode = jeg;
-	make_operand(q.arg1,&t.arg1);
-	make_booloperand(&t.arg2,false);
-	t.result.type = label_a;
-	t.result.value = nextinstructionlabel() + 3;
+	t->opcode = jge_v;
+	make_operand(q->arg1,&(t->arg1));
+	make_booloperand(&(t->arg2),0);
+	t->result.type = label_a;
+	t->result.val = nextinstructionlabel() + 3;
 	emit_instruction(t);
 
-	t.opcode = assign;
-	make_booloperand(&t.arg1,false);
-	reset_operand(&t.arg2);
-	make_operand(q.result,&t.result);
-	emit_instructions(t);
+	t->opcode = assign_v;
+	make_booloperand(&(t->arg1),0);
+	reset_operand(&(t->arg2));
+	make_operand(q->result,&(t->result));
+	emit_instruction(t);
 
-	t.opcode = jump;
-	reset_operand(&t.arg1);
-	reset_operand(&t.arg2);
+	t->opcode = jmp_v;
+	reset_operand(&(t->arg1));
+	reset_operand(&(t->arg2));
 	
 
-}*/
+}
 
 
 void generate_OR (struct quad* q) { generate(add_v,q); }
@@ -2252,7 +2369,15 @@ void generate_RETURN (struct quad* q) {
 	emit_instruction(t);
 }
 
-void generate_UMINUS(struct quad* q){ generate(uminus_v,q); }
+void generate_UMINUS(struct quad* q){ 
+	q->taddress = nextinstructionlabel();
+	struct instruction* t = malloc(sizeof(struct instruction));
+	t->opcode = mul_v;
+	make_operand(q->arg1,&(t->arg1));
+	make_operand(newexpr_constnum(-1),&(t->arg2));
+	make_operand(q->result,&(t->result));
+	emit_instruction(t);
+}
 
 void generate_instructions(void){
 	for(unsigned i = 1;i < currQuad;i++){
@@ -2439,7 +2564,389 @@ void printValArray(){
 }
 
 
-/* END OF PHASE 4,5 */
+/* END OF PHASE 4 */
+
+/* PHASE 5 */
+
+double consts_getnumber(unsigned index){
+	if(index > numCounter) yyerror("Index out of bounds on numArray ");
+
+	return numArray[index];
+}
+
+char* consts_getstring(unsigned index){
+	if(index > strCounter) yyerror("Index out of bounds on strArray ");
+
+	return strArray[index];
+}
+
+char* libfuncs_getused(unsigned index){
+	if(index > libfuncCounter) yyerror("Index out of bounds on libfuncArray ");
+
+	return libfuncArray[index];
+}
+
+Function_t* userfuncs_getfunc(unsigned index){
+	if(index > funcCounter) yyerror("Index out of bounds on funcArray ");
+
+	return funcArray[index];
+}
+
+static void avm_initstack(void){
+	for(unsigned i = 0;i < AVM_STACKSIZE;++i){
+		AVM_WIPEOUT(stack[i]);
+		stack[i].type = undef_m;
+	}
+}
+
+void avm_tableincrefcounter(struct avm_table* t){
+	++t->refCounter;
+}
+
+void avm_tabledecrefcounter(struct avm_table* t){
+	assert(t->refCounter > 0);
+	if(!--t->refCounter){
+		avm_tabledestroy(t);
+	}
+}
+
+void avm_tablebucketsinit(struct avm_table_bucket** p){
+	for(unsigned i = 0;i < AVM_TABLE_HASHSIZE;++i){
+		p[i] = (struct avm_table_bucket*)0;
+	}
+}
+
+struct avm_table* avm_tablenew(void){
+	struct avm_table* t = (struct avm_table*) malloc(sizeof(struct avm_table));
+	AVM_WIPEOUT(*t);
+	
+	t->refCounter = t->total = 0;
+	avm_tablebucketsinit(t->numIndexed);
+	avm_tablebucketsinit(t->strIndexed);
+	return t;
+}
+
+void avm_tablebucketsdestroy(struct avm_table_bucket** p){
+	for(unsigned i = 0; i < AVM_TABLE_HASHSIZE;++i){
+		for(struct avm_table_bucket* b = *p; b;){
+			struct avm_table_bucket* del = b;
+			b = b->next;
+			//avm_memcellclear(&del->key); TODO PHASE 5
+			//avm_memcellclear(&del->value);
+			free(del);
+		}
+		p[i] = (struct avm_table_bucket*) 0;
+	}
+}
+
+
+void avm_tabledestroy(struct avm_table* t){
+	avm_tablebucketsdestroy(t->strIndexed);
+	avm_tablebucketsdestroy(t->numIndexed);
+	free(t);
+}
+
+struct avm_memcell* avm_translate_operand(struct vmarg* arg,struct avm_memcell* reg){
+	switch(arg->type){
+		case global_a: return &stack[AVM_STACKSIZE - 1 - arg->val];
+		case local_a:  return &stack[topsp - arg->val];
+		case formal_a: return &stack[topsp + AVM_STACKENV_SIZE + 1 + arg->val];
+
+		case retval_a: return &retval;
+
+		case number_a: {
+			reg->type = number_m;
+			reg->data.numVal = consts_getnumber(arg->val);
+			return reg;
+		}
+
+		case string_a: {
+			reg->type = string_m;
+			reg->data.strVal = strdup(consts_getstring(arg->val));
+			return reg;
+		}
+
+		case bool_a: {
+			reg->type = bool_m;
+			reg->data.boolVal = arg->val;
+			return reg;
+		}
+
+		case nil_a: reg->type = nil_m; return reg;
+
+		case userfunc_a: {
+			reg->type = userfunc_m;
+			reg->data.funcVal = userfuncs_getfunc(arg->val)->qaddress;
+			return reg;
+		}
+		
+		case libfunc_a:{
+			reg->type = libfunc_m;
+			reg->data.libfuncVal = libfuncs_getused(arg->val);
+			return reg;
+		}
+
+		default: assert(0);
+	}
+
+}
+
+void execute_cycle(void){
+	if(executionFinished)
+		return;
+	else
+	if(pc == AVM_ENDING_PC){
+		executionFinished = 1;
+		return;
+	}else{
+		assert(pc < AVM_ENDING_PC);
+		struct instruction* instr = code + pc;
+		assert(instr->opcode >= 0 && instr->opcode <= AVM_MAX_INSTRUCTIONS);
+		if(instr->srcLine)
+			currLine = instr->srcLine;
+		unsigned oldPC = pc;
+		(*executeFuncs[instr->opcode])(instr);
+		if(pc == oldPC)
+			++pc;
+	}
+}
+
+void execute_assign(struct instruction* t){
+	struct avm_memcell* lv = avm_translate_operand(&(t->result),(struct avm_memcell*) 0);
+	struct avm_memcell* rv = avm_translate_operand(&(t->arg1),&ax);
+
+	assert(lv && ( &stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
+	assert(rv);
+
+	avm_assign(lv,rv);
+}
+
+void execute_add(struct instruction* t){}
+void execute_sub(struct instruction* t){}
+void execute_mul(struct instruction* t){}
+void execute_div(struct instruction* t){}
+void execute_mod(struct instruction* t){}
+void execute_jeq(struct instruction* t){}
+void execute_jne(struct instruction* t){}
+void execute_jle(struct instruction* t){}
+void execute_jge(struct instruction* t){}
+void execute_jlt(struct instruction* t){}
+void execute_jgt(struct instruction* t){}
+
+void execute_call(struct instruction* t){
+	struct avm_memcell* func = avm_translate_operand(&(t->result), &ax);
+	assert(func);
+	
+	switch(func->type) {
+		case userfunc_m: {
+			avm_callsaveenviroment();
+			pc = func->data.funcVal;
+			assert(pc < AVM_ENDING_PC);
+			assert(code[pc].opcode == funcenter_v);
+			break;
+		}
+
+		case string_m: {avm_calllibfunc(func->data.strVal); break;}
+		case libfunc_m: {avm_calllibfunc(func->data.libfuncVal); break;}
+		case table_m: {avm_callfunctor(func->data.tableVal); break;}
+
+		default: {
+			char* s = avm_tostring(func);
+			avm_error("call: cannot bind '%s' to function!",s);
+			free(s);
+			executionFinished = 1;
+		}
+
+	}
+}
+
+void execute_pusharg(struct instruction* t){
+	struct avm_memcell* arg = avm_translate_operand(&(t->arg1), &ax);
+	assert(arg);
+
+	/* This is actually stack[top] = arg but we have to use avm_assign */
+	avm_assign(&stack[top],arg);
+	++totalActuals;
+	avm_dec_top();
+}
+
+void execute_funcenter(struct instruction* t){
+	struct avm_memcell* func  = avm_translate_operand(&(t->result),&ax);
+	assert(func);
+	assert(pc == func->data.funcVal); /*Func address should match PC*/
+	
+	/* Callee actions here. */
+	totalActuals = 0;
+	Function_t* funcInfo = avm_getfuncinfo(pc);
+	topsp = top;
+	top = top - funcInfo->totallocals;
+
+}	
+
+void execute_funcexit(struct instruction* t){
+	unsigned oldTop = top;
+	top = avm_get_envvalue(topsp + AVM_SAVEDTOP_OFFSET);
+	pc = avm_get_envvalue(topsp + AVM_SAVEDPC_OFFSET);
+	topsp = avm_get_envvalue(topsp + AVM_SAVEDTOPSP_OFFSET);
+
+	while(++oldTop <= top) /*Intenionaly ignoring first*/
+		avm_memcellclear(&stack[oldTop]);
+}
+
+void execute_newtable(struct instruction* t){}
+void execute_tablegetelem(struct instruction* t){}
+void execute_tablesetelem(struct instruction* t){}
+void execute_nop(struct instruction* t){}
+
+void avm_assign(struct avm_memcell* lv,struct avm_memcell* rv){
+	if(lv == rv)	/*Same cells == destructive to assign*/
+		return;
+
+	if(lv->type == table_m && rv->type == table_m && lv->data.tableVal == rv->data.tableVal) /*Same tables == no need to assign*/
+		return;
+
+	if(rv->type == undef_m)	/*From undefined r-value == warn*/
+		avm_warning("assigning from 'undef' content!",NULL);
+
+	avm_memcellclear(lv);
+
+	memcpy(lv,rv,sizeof(struct avm_memcell));
+
+	/*Now take care of copied values or reference counting*/
+
+	if(lv->type == string_m)
+		lv->data.strVal = strdup(rv->data.strVal);
+	else
+	if(lv->type == table_m)
+		avm_tableincrefcounter(lv->data.tableVal);
+
+}
+
+void avm_call_functor(struct avm_table* t){
+	cx.type = string_m;
+	cx.data.strVal = "()";
+	struct avm_memcell* f = avm_tablegetelem(t,&cx);
+
+	if(!f)
+		avm_error("In calling table: no '()' element found",NULL);
+	else
+	if(f->type == table_m)
+		avm_call_functor(f->data.tableVal);
+	else
+	if(f->type == userfunc_a){
+		avm_push_table_arg(t);
+		avm_callsaveenviroment();
+		pc = f->data.funcVal;
+		assert(pc < AVM_ENDING_PC && code[pc].opcode == funcenter_v);
+	}else
+		avm_error("In calling table: illegal '()' element value",NULL);
+
+}
+
+void avm_dec_top(void){
+	if(!top){ /*Stack overflow*/
+		avm_error("Stack Overflow",NULL);
+		executionFinished = 1;
+	}
+	else
+		--top;
+	
+}
+
+void avm_push_envvalue(unsigned val){
+	stack[top].type = number_m;
+	stack[top].data.numVal = val;
+	avm_dec_top();
+}
+
+void avm_callsaveenviroment(void){
+	avm_push_envvalue(totalActuals);
+	assert(code[pc].opcode == call_v);
+	avm_push_envvalue(pc+1);
+	avm_push_envvalue(top + totalActuals + 2);
+	avm_push_envvalue(topsp);
+}
+
+unsigned avm_get_envvalue(unsigned i){
+	assert(stack[i].type = number_m);
+	unsigned val = (unsigned) stack[i].data.numVal;
+	assert(stack[i].data.numVal == ((double) val));
+	return val;
+}
+
+void avm_calllibfunc(char* id){
+	library_func_t f = avm_getlibraryfunc(id);
+	if(!f){
+		avm_error("unsupported lib func '%s' called!",id);
+		executionFinished = 1;
+
+	}
+	else{
+		/*Notice that enter function and exit function are called manually!*/
+		avm_callsaveenviroment();
+		topsp = top; /*Enter function sequence. No stack locals. */
+		totalActuals = 0;
+		(*f)();	/*Call library functions*/
+		if(!executionFinished) /*An error may naturally occur inside*/
+			execute_funcexit((struct instruction*) 0); /*Return sequence*/
+	}
+}
+
+unsigned avm_totalactual(void){
+	return avm_get_envvalue(topsp + AVM_NUMACTUALS_OFFSET);
+
+}
+
+struct avm_memcell* avm_getactual(unsigned i){
+	assert(i < avm_totalactuals());
+	return &stack[topsp + AVM_STACKENV_SIZE + 1 + i];
+
+}
+
+/* Implementation of the library function 'print'
+   It displays every argument at the console
+*/
+
+void libfunc_print(void){
+	unsigned n = avm_totalactuals();
+	for(unsigned i = 0; i < n; ++i){
+		char* s = avm_tostring(avm_getactual(i));
+		puts(s);
+		free(s);
+	}
+}
+
+
+void avm_push_table_arg(struct avm_table* t){
+	stack[top].type = table_m;
+	avm_tableincrefcounter(stack[top].data.tableVal = t);
+	++totalActuals;
+	avm_dec_top();
+}
+
+char* avm_tostring(struct avm_memcell* m){
+	assert(m->type >= 0 && m->type <= undef_m);
+	return (*tostringFuncs[m->type])(m);
+}
+
+double add_impl(double x,double y) { return x + y; }
+double sub_impl(double x,double y) { return x - y; }
+double mul_impl(double x,double y) { return x * y; }
+double div_impl(double x,double y) { 
+	if( y == 0){
+		yyerror("Division with 0 ");	
+	}
+	return x / y; 
+}
+
+double mod_impl(double x,double y) { 
+	if(y == 0){
+		yyerror("Cant mod with 0 ");
+	}
+	return ((unsigned) x) % ((unsigned) y);
+}
+
+/* END OF PHASE 5 */
 
 
 SymbolTableEntry_t* makeLibEntry(char *name){
