@@ -1,4 +1,4 @@
-/*
+
 t = [];
 
 t.x = 1;
@@ -18,6 +18,6 @@ t4[t2][3]("hi");
 function f(x) { print(x); return f; }
 
 f(1) (2) (3);
-*/
-t = [ (function f(x) { print(x); return t; }) ];
+
+t = [ (function g(x) { print(x); return t; }) ];
 t[0](1)[0](2)[0](3);
