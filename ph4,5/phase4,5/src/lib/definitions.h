@@ -268,17 +268,17 @@ struct avm_memcell {
 };
 
 struct avm_table_bucket	{
-	struct avm_memcell	key;
-	struct avm_memcell	value;
+	struct avm_memcell		key;
+	struct avm_memcell		value;
 	struct avm_table_bucket*	next;
 };
 
 
 struct avm_table{
-	unsigned	refCounter;
+	unsigned			refCounter;
 	struct avm_table_bucket*	strIndexed[AVM_TABLE_HASHSIZE];
 	struct avm_table_bucket*	numIndexed[AVM_TABLE_HASHSIZE];
-	unsigned total;
+	unsigned 			total;
 };
 
 #define AVM_STACKSIZE 4096
@@ -288,7 +288,7 @@ struct avm_table{
 
 #define AVM_MAX_INSTRUCTIONS (unsigned) nop_v
 
-#define AVM_ENDING_PC codeSize
+#define AVM_ENDING_PC tcodeSize + 1
 
 #define AVM_NUMACTUALS_OFFSET 4
 #define AVM_SAVEDPC_OFFSET    3

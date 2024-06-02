@@ -244,9 +244,9 @@ struct avm_memcell ax, bx, cx;
 struct avm_memcell retval;
 unsigned top, topsp;
 unsigned char executionFinished = 0;
-unsigned pc = 0;
+unsigned pc = 1;
 unsigned currLine = 0;
-unsigned codeSize = 0;
+//unsigned codeSize = 0;
 struct instruction* code = (struct instruction*) 0;
 unsigned totalActuals = 0;
 
@@ -262,7 +262,7 @@ static void avm_initstack(void);
 struct avm_table* avm_tablenew(void);
 void avm_tabledestroy(struct avm_table*);
 struct avm_memcell* avm_tablegetelem(struct avm_table*, struct avm_memcell* key);
-void avm_tablesetelem(struct avm_memcell* key, struct avm_memcell* value);
+void avm_tablesetelem(struct avm_table* table,struct avm_memcell* key, struct avm_memcell* value);
 void avm_tableincrefcounter(struct avm_table* t);
 void avm_tabledecrefcounter(struct avm_table* t);
 void avm_tablebucketsinit(struct avm_table_bucket** p);
@@ -314,7 +314,7 @@ execute_func_t executeFuncs[] = {
 	execute_nop
 };
 
-void execute_cycle(void);
+int execute_cycle(void);
 void memclear_string(struct avm_memcell* m);
 void memclear_table(struct avm_memcell* m);
 void avm_memcellclear(struct avm_memcell* m);
@@ -392,8 +392,11 @@ arithmetic_func_t arithmeticFuncs[] = {
 
 unsigned int avm_table_hash(const char *pcKey);
 
+struct avm_table_bucket* getTableBucket(struct avm_table* table, struct avm_memcell* key);
 
+void setTableBucket(struct avm_table* table, struct avm_table_bucket* bucket);
 
+void run_alphaprogram(void);
 
 /* END OF PHASE 5 */
 %}
@@ -1443,16 +1446,18 @@ int main(int argc, char **argv) {
 	push_loopcounter();
 
 	yyparse();
-
+	
 	printScopeLists();
 	printQuads();
 	
 	
 	generate_instructions();
-	//printQuads();
 	printInstructions();
 	
 	printValArray();
+
+	run_alphaprogram();
+
     	return 0;
 }
 
@@ -2613,8 +2618,8 @@ void avm_tablebucketsdestroy(struct avm_table_bucket** p){
 		for(struct avm_table_bucket* b = *p; b;){
 			struct avm_table_bucket* del = b;
 			b = b->next;
-			//avm_memcellclear(&del->key); TODO PHASE 5
-			//avm_memcellclear(&del->value);
+			avm_memcellclear(&(del->key));
+			avm_memcellclear(&(del->value));
 			free(del);
 		}
 		p[i] = (struct avm_table_bucket*) 0;
@@ -2637,32 +2642,52 @@ struct avm_memcell* avm_translate_operand(struct vmarg* arg,struct avm_memcell* 
 		case retval_a: return &retval;
 
 		case number_a: {
+			if(reg == NULL){
+				reg = malloc(sizeof(struct avm_memcell));
+			}
 			reg->type = number_m;
 			reg->data.numVal = consts_getnumber(arg->val);
 			return reg;
 		}
 
 		case string_a: {
+			if(reg == NULL){
+				reg = malloc(sizeof(struct avm_memcell));
+			}
 			reg->type = string_m;
 			reg->data.strVal = strdup(consts_getstring(arg->val));
 			return reg;
 		}
 
 		case bool_a: {
+			if(reg == NULL){
+				reg = malloc(sizeof(struct avm_memcell));
+			}
 			reg->type = bool_m;
 			reg->data.boolVal = arg->val;
 			return reg;
 		}
 
-		case nil_a: reg->type = nil_m; return reg;
+		case nil_a: {
+			if(reg == NULL){
+				reg = malloc(sizeof(struct avm_memcell));
+			}
+			reg->type = nil_m; return reg;
+		}
 
 		case userfunc_a: {
+			if(reg == NULL){
+				reg = malloc(sizeof(struct avm_memcell));
+			}
 			reg->type = userfunc_m;
 			reg->data.funcVal = userfuncs_getfunc(arg->val)->qaddress;
 			return reg;
 		}
 		
 		case libfunc_a:{
+			if(reg == NULL){
+				reg = malloc(sizeof(struct avm_memcell));
+			}
 			reg->type = libfunc_m;
 			reg->data.libfuncVal = libfuncs_getused(arg->val);
 			return reg;
@@ -2673,16 +2698,18 @@ struct avm_memcell* avm_translate_operand(struct vmarg* arg,struct avm_memcell* 
 
 }
 
-void execute_cycle(void){
+int execute_cycle(void){
 	if(executionFinished)
-		return;
+		
+		return 0;
 	else
 	if(pc == AVM_ENDING_PC){
 		executionFinished = 1;
-		return;
+		
+		return 0;
 	}else{
 		assert(pc < AVM_ENDING_PC);
-		struct instruction* instr = code + pc;
+		struct instruction* instr = instructions + pc;
 		assert(instr->opcode >= 0 && instr->opcode <= AVM_MAX_INSTRUCTIONS);
 		if(instr->srcLine)
 			currLine = instr->srcLine;
@@ -2690,6 +2717,8 @@ void execute_cycle(void){
 		(*executeFuncs[instr->opcode])(instr);
 		if(pc == oldPC)
 			++pc;
+		
+		return 1;
 	}
 }
 
@@ -2776,9 +2805,59 @@ void execute_funcexit(struct instruction* t){
 		avm_memcellclear(&stack[oldTop]);
 }
 
-void execute_newtable(struct instruction* t){}
-void execute_tablegetelem(struct instruction* t){}
-void execute_tablesetelem(struct instruction* t){}
+void execute_newtable(struct instruction* t){
+	struct avm_memcell* lv = avm_translate_operand(&(t->result),(struct avm_memcell*) 0);
+	assert(lv && ( &stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
+
+	avm_memcellclear(lv);
+
+	lv->type = table_m;
+	lv->data.tableVal = avm_tablenew();
+	avm_tableincrefcounter(lv->data.tableVal);
+}
+
+void execute_tablegetelem(struct instruction* t){
+	struct avm_memcell* lv = avm_translate_operand(&(t->result),(struct avm_memcell*) 0);
+	struct avm_memcell* r = avm_translate_operand(&(t->arg1),(struct avm_memcell*) 0);
+	struct avm_memcell* i = avm_translate_operand(&(t->arg2), &ax);
+
+	assert(lv && &stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval);
+	assert(r && &stack[AVM_STACKSIZE - 1] >= r && r > &stack[top] );
+	assert(i);
+
+	avm_memcellclear(lv);
+	lv->type = nil_m; /*Default value*/
+
+	if(r->type != table_m){
+		avm_error("Incorrect table type",NULL);
+	}
+	else{
+		struct avm_memcell* content = avm_tablegetelem(r->data.tableVal,i);
+		if(content)
+			avm_assign(lv,content);
+		else {
+			char* rs = avm_tostring(r);
+			char* is = avm_tostring(i);
+			avm_warning("%s not found",rs);
+		}
+	}
+}
+
+void execute_tablesetelem(struct instruction* t){
+	struct avm_memcell* r = avm_translate_operand(&(t->result),(struct avm_memcell*) 0);
+	struct avm_memcell* i = avm_translate_operand(&(t->arg1),&ax);
+	struct avm_memcell* c = avm_translate_operand(&(t->arg2),&bx);
+
+	assert(r && &stack[AVM_STACKSIZE - 1] >= r && r > &stack[top]);
+	assert(i && c);
+
+	if(r->type != table_m)
+		avm_error("Incorrect table type",NULL);
+	else
+		avm_tablesetelem(r->data.tableVal,i,c);
+}
+
+
 void execute_nop(struct instruction* t){}
 
 void avm_assign(struct avm_memcell* lv,struct avm_memcell* rv){
@@ -2875,7 +2954,7 @@ void avm_calllibfunc(char* id){
 	}
 }
 
-unsigned avm_totalactual(void){
+unsigned avm_totalactuals(void){
 	return avm_get_envvalue(topsp + AVM_NUMACTUALS_OFFSET);
 
 }
@@ -2977,6 +3056,72 @@ Function_t* avm_getfuncinfo(unsigned address){
 	return userfuncs_getfunc(address);
 }
 
+void memclear_string(struct avm_memcell* m){
+	assert(m->data.strVal);
+	free(m->data.strVal);
+}
+
+void memclear_table(struct avm_memcell* m){
+	assert(m->data.tableVal);
+	avm_tabledecrefcounter(m->data.tableVal);
+}
+
+char* number_tostring(struct avm_memcell* m){
+	int len = snprintf(NULL,0,"%lf",m->data.numVal) + 1;
+	char* str = malloc(sizeof(char) * len);
+	
+	if(str == NULL){
+		avm_error("Memory allocation failed",NULL);
+	}
+
+	sprintf(str,"%lf",m->data.numVal);
+	return str;
+
+}
+
+char* string_tostring(struct avm_memcell* m){
+	return strdup(m->data.strVal);
+}
+
+char* bool_tostring(struct avm_memcell* m){
+	char* str = malloc(sizeof(char) * 10);
+	
+	if(m->data.boolVal == 1){
+		str = "true";
+	}else{
+		str = "false";
+	}
+
+	return str;
+
+}
+
+
+char* table_tostring(struct avm_memcell* m){ //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	return "nah bro";
+}
+
+char* userfunc_tostring(struct avm_memcell* m){
+	assert(m->data.funcVal <= funcCounter);
+	Function_t* f = funcArray[m->data.funcVal];
+	return strdup(f->name);
+}
+
+char* libfunc_tostring(struct avm_memcell* m){
+	return strdup(m->data.libfuncVal);	
+}
+
+char* nil_tostring(struct avm_memcell* m){
+	char* str = "nil";
+	return str;
+}
+
+char* undef_tostring(struct avm_memcell* m){
+	char* str = "undef";
+	return str;
+}
+
+
 unsigned int avm_table_hash(const char *pcKey){
 	size_t ui;
 	unsigned int uiHash = 0U;
@@ -2986,21 +3131,22 @@ unsigned int avm_table_hash(const char *pcKey){
 	return uiHash % AVM_TABLE_HASHSIZE;
 }
 
-struct avm_table_bucket* getTableBucket(struct avm_table* table, char* keyNAME, struct avm_memcell* keyMEM){
-	if(keyMEM->type != number_m && keyMEM->type != string_m){ avm_error("Invalid key type", "tablegetelem"); return NULL; }
-	struct avm_table_bucket* list = (keyMEM->type == number_m) ? table->numIndexed[avm_table_hash(keyNAME)] : table->strIndexed[avm_table_hash(keyNAME)];
+struct avm_table_bucket* getTableBucket(struct avm_table* table, struct avm_memcell* key){
+	if(key->type != number_m && key->type != string_m){ avm_error("Invalid key type", "tablegetelem"); return NULL; }
+	struct avm_table_bucket* list = (key->type == number_m) ? table->numIndexed[avm_table_hash(number_tostring(key))] : table->strIndexed[avm_table_hash(key->data.strVal)]; 
+	/*Maybe convert numVal to string or find other solution same for below*/
 	
 
-	if(keyMEM->type == number_m){
+	if(key->type == number_m){
 
 		while(list != NULL){
-			if(list->key.data.numVal == keyMEM->data.numVal)return list;
+			if(list->key.data.numVal == key->data.numVal)return list;
 		
 			list = list->next;
 		}
 	}else{
 		while(list != NULL){
-			if(strcmp(list->key.data.strVal, keyMEM->data.strVal) == 0)return list;
+			if(strcmp(list->key.data.strVal, key->data.strVal) == 0)return list;
 		
 			list = list->next;
 		}
@@ -3009,10 +3155,31 @@ struct avm_table_bucket* getTableBucket(struct avm_table* table, char* keyNAME, 
 	return NULL;
 }
 
-struct avm_memcell* avm_tablegetelem(struct avm_table* table, struct avm_memcell* key){
-	
+void setTableBucket(struct avm_table* table,struct avm_table_bucket* bucket){
+	if(bucket->key.type != number_m && bucket->key.type != string_m){avm_error("Invalid key type", "tablesetelem"); return;}
+ struct avm_table_bucket* list = (bucket->key.type == number_m) ? table->numIndexed[avm_table_hash(number_tostring(&(bucket->key)))] : table->strIndexed[avm_table_hash(bucket->key.data.strVal)];
+
+	bucket->next = list;	
+	list = bucket;
+
 }
 
+struct avm_memcell* avm_tablegetelem(struct avm_table* table, struct avm_memcell* key){
+		return &(getTableBucket(table,key)->value);
+}
+
+void avm_tablesetelem(struct avm_table* table,struct avm_memcell* index,struct avm_memcell* content){
+	struct avm_table_bucket* bucket = malloc(sizeof(struct avm_table_bucket));
+	bucket->key = *index;
+	bucket->value = *content;
+	bucket->next = NULL;
+	
+	setTableBucket(table,bucket);
+}
+
+void run_alphaprogram(void){
+	while(execute_cycle());
+}
 
 /* END OF PHASE 5 */
 
