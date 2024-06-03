@@ -196,6 +196,7 @@ void generate_GETRETVAL (struct quad* q);
 void generate_FUNCSTART (struct quad* q);
 void generate_FUNCEND (struct quad* q);
 void generate_RETURN (struct quad* q);
+void execute_jmp(struct instruction* i);
 void generate_UMINUS(struct quad* q);
 
 void push_funcstack(Function_t* f);
@@ -276,6 +277,12 @@ void execute_sub(struct instruction*);
 void execute_mul(struct instruction*);
 void execute_div(struct instruction*);
 void execute_mod(struct instruction*);*/
+
+void execute_uminus(struct instruction*);
+void execute_and(struct instruction*);
+void execute_or(struct instruction*);
+void execute_not(struct instruction*);
+
 void execute_jeq(struct instruction*);
 void execute_jne(struct instruction*);
 void execute_jle(struct instruction*);
@@ -298,6 +305,10 @@ execute_func_t executeFuncs[] = {
 	execute_mul,
 	execute_div,
 	execute_mod,
+	execute_uminus,
+	execute_and,
+	execute_or,
+	execute_not,
 	execute_jeq,
 	execute_jne,
 	execute_jle,
@@ -311,6 +322,7 @@ execute_func_t executeFuncs[] = {
 	execute_newtable,
 	execute_tablegetelem,
 	execute_tablesetelem,
+	execute_jmp,
 	execute_nop
 };
 
@@ -3012,6 +3024,19 @@ void execute_arithmetic(struct instruction* t){
 	}
 }
 
+void execute_uminus(struct instruction* i){assert(0);}
+void execute_and(struct instruction* i){assert(0);}
+void execute_or(struct instruction* i){assert(0);}
+void execute_not(struct instruction* i){assert(0);}
+
+void execute_jmp(struct instruction* i){
+	if(i->result.type != label_a) {
+		avm_error("jump to an non label", ""); 
+		executionFinished = 1;
+	}
+
+	pc = i->result.val;
+}
 
 double add_impl(double x,double y) { return x + y; }
 double sub_impl(double x,double y) { return x - y; }
@@ -3152,6 +3177,7 @@ struct avm_table_bucket* getTableBucket(struct avm_table* table, struct avm_memc
 		}
 	}
 
+	avm_error("table element dont exist", "");
 	return NULL;
 }
 
