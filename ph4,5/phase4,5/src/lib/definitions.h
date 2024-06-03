@@ -184,8 +184,8 @@ enum vmopcode {
 	jle_v,		jge_v,		jlt_v,
 	jgt_v,		call_v,		pusharg_v,
 	funcenter_v,	funcexit_v,	newtable_v,
-	tablegetelem_v,	tablesetelem_v,	nop_v,
-	jmp_v
+	tablegetelem_v,	tablesetelem_v,	jmp_v,
+	nop_v
 };
 
 enum vmarg_t {

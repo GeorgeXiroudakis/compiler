@@ -347,6 +347,7 @@ void avm_assign(struct avm_memcell* lv,struct avm_memcell* rv);
 
 void avm_error(char* format,char* v);
 char* avm_tostring(struct avm_memcell* m); /*Caller frees.*/
+unsigned char avm_tobool(struct avm_memcell* m);
 void avm_calllibfunc(char* funcName);
 void avm_callsaveenviroment(void);
 void avm_call_functor(struct avm_table* t);
@@ -947,7 +948,7 @@ call: call PARENTHOPEN {elistFlag = 0;}elist PARENTHCLOSE {
 			  } 
 			 
 			  $$ = makeCall($1,$2->elist);
-			  //elistFlag = 0;
+			  elistFlag = 0;
     			 }
     | lvalue methodcall {$1 = emit_iftableitem($1); 
 			  	if($2->method){
@@ -2750,12 +2751,129 @@ void execute_mul(struct instruction* t){}
 void execute_div(struct instruction* t){}
 void execute_mod(struct instruction* t){}*/
 
-void execute_jeq(struct instruction* t){}
-void execute_jne(struct instruction* t){}
-void execute_jle(struct instruction* t){}
-void execute_jge(struct instruction* t){}
-void execute_jlt(struct instruction* t){}
-void execute_jgt(struct instruction* t){}
+void execute_jeq(struct instruction* t){
+	assert(t->result.type == label_a);
+
+	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1), &ax);
+	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2), &bx);
+
+	unsigned char result = 0;
+
+	if(rv1->type == undef_m || rv2->type == undef_m)
+		avm_error("Undef involved in equality!",NULL);
+	else
+	if(rv1->type == bool_m || rv2->type == bool_m)
+		result = (avm_tobool(rv1) == avm_tobool(rv2));
+	else
+	if(rv1->type == nil_m || rv2->type == nil_m)
+		result = rv1->type == nil_m && rv2->type == nil_m;
+	else
+	if(rv1->type != rv2->type)
+		avm_error("Types are different!",NULL);
+	else {
+		switch(rv1->type){
+			case number_m: result = (rv1->data.numVal == rv2->data.numVal); break;
+			
+			case string_m: result = (strcmp(rv1->data.strVal,rv2->data.strVal) == 0);break;
+			
+			case table_m: result = (rv1->data.tableVal == rv2->data.tableVal);break;
+			
+			case userfunc_m: result = (rv1->data.funcVal == rv2->data.funcVal);break;
+			
+			case libfunc_m: result = (strcmp(rv1->data.libfuncVal,rv2->data.libfuncVal) == 0);break;
+			
+			default: assert(0);
+		}
+	}
+
+	if(!executionFinished && result)
+		pc = t->result.val;
+}
+
+void execute_jne(struct instruction* t){
+	assert(t->result.type == label_a);
+
+	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1), &ax);
+	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2), &bx);
+
+	unsigned char result = 0;
+
+	if(rv1->type == undef_m || rv2->type == undef_m)
+		avm_error("Undef involved in equality!",NULL);
+	else
+	if(rv1->type == bool_m || rv2->type == bool_m)
+		result = (avm_tobool(rv1) == avm_tobool(rv2));
+	else
+	if(rv1->type == nil_m || rv2->type == nil_m)
+		result = rv1->type == nil_m && rv2->type == nil_m;
+	else
+	if(rv1->type != rv2->type)
+		avm_error("Types are different!",NULL);
+	else {
+		switch(rv1->type){
+			case number_m: result = (rv1->data.numVal == rv2->data.numVal);break;
+			
+			case string_m: result = (strcmp(rv1->data.strVal,rv2->data.strVal) == 0);break;
+			
+			case table_m: result = (rv1->data.tableVal == rv2->data.tableVal);break;
+			
+			case userfunc_m: result = (rv1->data.funcVal == rv2->data.funcVal);break;
+			
+			case libfunc_m: result = (strcmp(rv1->data.libfuncVal,rv2->data.libfuncVal) == 0);break;
+			
+			default: assert(0);
+		}
+	}
+
+	if(!executionFinished && !result)
+		pc = t->result.val;
+
+}
+void execute_jle(struct instruction* t){
+	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1),&ax);
+	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2),&bx);
+	
+	if(rv1->type != number_m || rv2->type != number_m)
+		avm_warning("Different types for jle",NULL);
+	else
+	if(rv1->data.numVal <= rv2->data.numVal)
+		pc = t->result.val;
+	
+
+}
+void execute_jge(struct instruction* t){
+	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1),&ax);
+	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2),&bx);
+	
+	if(rv1->type != number_m || rv2->type != number_m)
+		avm_warning("Different types for jle",NULL);
+	else
+	if(rv1->data.numVal >= rv2->data.numVal)
+		pc = t->result.val;
+
+}
+void execute_jlt(struct instruction* t){
+	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1),&ax);
+	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2),&bx);
+	
+	if(rv1->type != number_m || rv2->type != number_m)
+		avm_warning("Different types for jle",NULL);
+	else
+	if(rv1->data.numVal < rv2->data.numVal)
+		pc = t->result.val;
+
+}
+void execute_jgt(struct instruction* t){
+	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1),&ax);
+	struct avm_memcell* rv2 = avm_translate_operand(&(t->arg2),&bx);
+	
+	if(rv1->type != number_m || rv2->type != number_m)
+		avm_warning("Different types for jle",NULL);
+	else
+	if(rv1->data.numVal > rv2->data.numVal)
+		pc = t->result.val;
+
+}
 
 void execute_call(struct instruction* t){
 	struct avm_memcell* func = avm_translate_operand(&(t->result), &ax);
@@ -3003,6 +3121,28 @@ char* avm_tostring(struct avm_memcell* m){
 	return (*tostringFuncs[m->type])(m);
 }
 
+unsigned char avm_tobool(struct avm_memcell* m){
+	switch(m->type){
+		case number_m: return (m->data.numVal != 0);
+
+		case string_m: return (strcmp(m->data.strVal,"") != 0);
+
+		case bool_m: return m->data.boolVal;
+
+		case table_m: return 1;
+
+		case userfunc_m: return 1;
+
+		case libfunc_m: return 1;
+
+		case nil_m: return 0;
+
+		case undef_m: return 0;
+
+		default: assert(0);
+	}
+}
+
 void execute_arithmetic(struct instruction* t){
 	struct avm_memcell* lv = avm_translate_operand(&(t->result), (struct avm_memcell*) 0);
 	struct avm_memcell* rv1 = avm_translate_operand(&(t->arg1), (struct avm_memcell*) 0);
@@ -3183,10 +3323,10 @@ struct avm_table_bucket* getTableBucket(struct avm_table* table, struct avm_memc
 
 void setTableBucket(struct avm_table* table,struct avm_table_bucket* bucket){
 	if(bucket->key.type != number_m && bucket->key.type != string_m){avm_error("Invalid key type", "tablesetelem"); return;}
- struct avm_table_bucket* list = (bucket->key.type == number_m) ? table->numIndexed[avm_table_hash(number_tostring(&(bucket->key)))] : table->strIndexed[avm_table_hash(bucket->key.data.strVal)];
+ struct avm_table_bucket** list = (bucket->key.type == number_m) ? &(table->numIndexed[avm_table_hash(number_tostring(&(bucket->key)))]) : &(table->strIndexed[avm_table_hash(bucket->key.data.strVal)]);
 
-	bucket->next = list;	
-	list = bucket;
+	bucket->next = *list;	
+	*list = bucket;
 
 }
 
