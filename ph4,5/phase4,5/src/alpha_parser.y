@@ -248,7 +248,7 @@ unsigned char executionFinished = 0;
 unsigned pc = 1;
 unsigned currLine = 0;
 //unsigned codeSize = 0;
-struct instruction* code = (struct instruction*) 0;
+//struct instruction* code = (struct instruction*) 0;
 unsigned totalActuals = 0;
 
 
@@ -358,6 +358,7 @@ Function_t* avm_getfuncinfo(unsigned address);
 unsigned avm_get_envvalue(unsigned i);
 unsigned avm_totalactuals(void);
 struct avm_memcell* avm_getactual(unsigned i);
+void avm_initialize (void);
 //void avm_registerlibfunc(char* id,library_func_t addr); TODO wat
 void libfunc_print(void);
 void avm_call_functor(struct avm_table* t);
@@ -641,21 +642,19 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 		 }
     | NOT expr {
 		
-		if($2->type == boolexpr_e){
-			printf("boo\n");
-			$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
-			$$->truelist = $2->falselist;
-			$$->falselist = $2->truelist;
-			//emit(OP_NOT,$2,NULL,$$,0,0);
-		}else{
-			printf("nah bro\n");
+		if($2->type != boolexpr_e){
 			$2->truelist = newlist(nextquadlabel());
 			$2->falselist = newlist(nextquadlabel() + 1);
 			emit(IF_EQ,$2,newexpr_constbool(1),NULL,0,0);
 			emit(JUMP,NULL,NULL,NULL,0,0);
 			
 		}
-	       }
+		
+		$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
+		$$->truelist = $2->falselist;
+		$$->falselist = $2->truelist;
+
+	    }
     | PLUSPLUS lvalue {checkArithmetic($2);
 		       	if($2->type == tableitem_e){
 				$$ = emit_iftableitem($2);
@@ -880,7 +879,7 @@ call_lvalue: IDENTIFIER				{
 								  if(res != NULL) {
                                                                         if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
                                                                         else {
-                                                                                printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
+                                                                                //printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
                                                                                 if(res->type == libfunc){
                                                                                          $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
                                                                                 }else {
@@ -1460,15 +1459,16 @@ int main(int argc, char **argv) {
 
 	yyparse();
 	
-	printScopeLists();
+//	printScopeLists();
 	printQuads();
 	
 	
 	generate_instructions();
 	printInstructions();
 	
-	printValArray();
+//	printValArray();
 
+	avm_initialize();
 	run_alphaprogram();
 
     	return 0;
@@ -2876,7 +2876,7 @@ void execute_jgt(struct instruction* t){
 }
 
 void execute_call(struct instruction* t){
-	struct avm_memcell* func = avm_translate_operand(&(t->result), &ax);
+	struct avm_memcell* func = avm_translate_operand(&(t->arg1), &ax);
 	assert(func);
 	
 	switch(func->type) {
@@ -2884,7 +2884,7 @@ void execute_call(struct instruction* t){
 			avm_callsaveenviroment();
 			pc = func->data.funcVal;
 			assert(pc < AVM_ENDING_PC);
-			assert(code[pc].opcode == funcenter_v);
+			assert(instructions[pc].opcode == funcenter_v);
 			break;
 		}
 
@@ -3029,7 +3029,7 @@ void avm_call_functor(struct avm_table* t){
 		avm_push_table_arg(t);
 		avm_callsaveenviroment();
 		pc = f->data.funcVal;
-		assert(pc < AVM_ENDING_PC && code[pc].opcode == funcenter_v);
+		assert(pc < AVM_ENDING_PC && instructions[pc].opcode == funcenter_v);
 	}else
 		avm_error("In calling table: illegal '()' element value",NULL);
 
@@ -3053,14 +3053,14 @@ void avm_push_envvalue(unsigned val){
 
 void avm_callsaveenviroment(void){
 	avm_push_envvalue(totalActuals);
-	assert(code[pc].opcode == call_v);
+	assert(instructions[pc].opcode == call_v);
 	avm_push_envvalue(pc+1);
 	avm_push_envvalue(top + totalActuals + 2);
 	avm_push_envvalue(topsp);
 }
 
 unsigned avm_get_envvalue(unsigned i){
-	assert(stack[i].type = number_m);
+	assert(stack[i].type == number_m);
 	unsigned val = (unsigned) stack[i].data.numVal;
 	assert(stack[i].data.numVal == ((double) val));
 	return val;
@@ -3078,7 +3078,9 @@ void avm_calllibfunc(char* id){
 		avm_callsaveenviroment();
 		topsp = top; /*Enter function sequence. No stack locals. */
 		totalActuals = 0;
-		// (*f)();	/*Call library functions*/   TODO: to call the actual library function we implemented;
+	
+		if( strcmp(f->name, "print") == 0 ) libfunc_print();
+
 		if(!executionFinished) /*An error may naturally occur inside*/
 			execute_funcexit((struct instruction*) 0); /*Return sequence*/
 	}
@@ -3103,7 +3105,14 @@ void libfunc_print(void){
 	unsigned n = avm_totalactuals();
 	for(unsigned i = 0; i < n; ++i){
 		char* s = avm_tostring(avm_getactual(i));
-		puts(s);
+		
+		int i = 0;
+/*		while(*(s+i) != '\0'){
+			putchar(*(s+1));
+			i++;
+		}*/
+		printf("%s", s);
+		//puts(s);
 		free(s);
 	}
 }
@@ -3208,12 +3217,12 @@ void avm_memcellclear (struct avm_memcell* m){
 }
 
 void avm_error(char* format,char* v){
-	fprintf(stderr, RED "AVM:EROR at runtime: %s about %s" RESET, format, v);
+	fprintf(stderr, RED "AVM:EROR at runtime: %s about %s\n" RESET, format, v);
 	executionFinished = 1;
 }
 
 void avm_warning(char* format,char* v){
-	fprintf(stderr, PURPLE "AVM:EROR at runtime: %s about %s" RESET, format, v);
+	fprintf(stderr, PURPLE "AVM:EROR at runtime: %s about %s\n" RESET, format, v);
 }
 
 
@@ -3341,6 +3350,14 @@ void avm_tablesetelem(struct avm_table* table,struct avm_memcell* index,struct a
 	bucket->next = NULL;
 	
 	setTableBucket(table,bucket);
+}
+
+
+void avm_initialize (void){
+	avm_initstack();
+	top = AVM_STACKSIZE - 1 - programVarOffset;
+	topsp = 0;
+	//TODO register lib funcs 
 }
 
 void run_alphaprogram(void){
