@@ -827,7 +827,7 @@ lvalue: IDENTIFIER		{
 									
 									
 								}
-							}else { printf("lala1\n"); $$ = makeExpression(libraryfunc_e, upStreamLookUp(currScope, $1), NULL, NULL);}
+							}else { $$ = makeExpression(libraryfunc_e, upStreamLookUp(currScope, $1), NULL, NULL);}
 						}
 						
      
@@ -2230,7 +2230,7 @@ void generate_relational(enum vmopcode op,struct quad* q){
 	make_operand(q->arg2,&(t->arg2));
 
 	t->result.type = label_a;
-	printf("q label is: %u, currProcessedQuad is: %u\n",q->label,currprocessedquad());
+	//printf("q label is: %u, currProcessedQuad is: %u\n",q->label,currprocessedquad());
 	if(q->label < currprocessedquad()){
 		t->result.val = quads[q->label].taddress;
 	}else{

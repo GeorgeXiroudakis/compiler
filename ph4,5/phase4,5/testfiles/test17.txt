@@ -1,3 +1,6 @@
-x = 1 + 2;
-y = "tonis";
-print("1 + 2 = ", x, "\n", y, "\n");
+t = [{"tonis" : "super"}, {"ksiru" : "aftismo"}, {"gkampi" : print}, {10 : 15}];
+
+t2 = [print];
+t2..0();
+
+x = 5;
