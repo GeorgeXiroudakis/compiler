@@ -149,6 +149,9 @@ unsigned libfuncCounter = 0;
 
 struct func_stack* head = NULL;
 
+unsigned func_skip[MAX_NESTED_FUNC] = {0};
+long int func_skip_top = -1;
+
 void expand_instructions();
 
 unsigned consts_newstring(char* s);
@@ -170,6 +173,8 @@ void backpatch_retlist(struct return_list* ret,unsigned label);
 void printInstructions();
 void printEnum(FILE* file,struct vmarg* arg);
 void printValArray();
+void push_func_skip(unsigned label);
+unsigned pop_func_skip();
 
 void generate_ADD (struct quad* q);
 void generate_SUB (struct quad* q);
@@ -594,8 +599,8 @@ expr: assignexpr {	struct expr* temp;
 				struct expr* expr1 = $1;
 				struct expr* expr2 = $4;
 
-				printf("expr1 = %s, expr2 = %s\n", expr1->sym->symbol->name, expr2->sym->symbol->name);
-				printf("expr1->type = %d, expr2->type = %d\n", expr1->type, expr2->type);
+				//printf("expr1 = %s, expr2 = %s\n", expr1->sym->symbol->name, expr2->sym->symbol->name);
+				//printf("expr1->type = %d, expr2->type = %d\n", expr1->type, expr2->type);
 				
 				if($1->type != boolexpr_e){
 					if($1->truelist == 0) $1->truelist = newlist(nextquadlabel());
@@ -1476,22 +1481,23 @@ int main(int argc, char **argv) {
 
 	yyparse();
 	
-	printScopeLists();
+	//printScopeLists();
 	printQuads();
 	
 	
-/*	generate_instructions();
+	generate_instructions();
 	printInstructions();
 	
-//	printValArray();
+	//printValArray();
 
 	avm_initialize();
 	run_alphaprogram();
-*/
+
     	return 0;
 }
 
 /*PHASE 3*/
+
 
 enum scope_space currscopespace(void){
 	if(scopeSpaceCounter == 1){
@@ -1970,6 +1976,20 @@ Function_t* top_funcstack(void){
 	}
 }
 
+void push_func_skip(unsigned label){
+	if(func_skip_top == MAX_NESTED_FUNC){
+		avm_error("Exceeded the max amount of nested functions","");
+		return;
+	}
+	func_skip[++func_skip_top] = label;
+}
+unsigned pop_func_skip(){
+	if(func_skip_top == -1){
+		avm_error("No nested function to pop","");
+		return -1;
+	}
+	return func_skip[func_skip_top--];
+}
 
 
 unsigned consts_newstring(char* str){
@@ -2335,6 +2355,21 @@ void generate_GETRETVAL (struct quad* q) {
 }
 
 void generate_FUNCSTART (struct quad* q) { 
+	struct quad* qd = malloc(sizeof(struct quad));
+	qd->result = qd->arg1 = qd->arg2 = NULL;
+	qd->op = JUMP;
+	qd->label = qd->taddress = qd->line = 0;
+	
+	generate_JUMP(qd);
+	//struct instruction* jmp = malloc(sizeof(struct instruction));
+	//jmp->opcode = jmp_v;
+	//make_operand(qd->result,&(jmp->result));
+	//make_operand(qd->arg1,&(jmp->arg1));
+	//make_operand(qd->arg2,&(jmp->arg2));
+	push_func_skip(currInstr);
+	//emit_instruction(jmp);
+
+
 	SymbolTableEntry_t* f;
 	f = q->result->sym;
 	f->taddress = nextinstructionlabel();
@@ -2361,8 +2396,6 @@ void generate_FUNCEND (struct quad* q) {
 	make_operand(q->result,&(t->result));
 	reset_operand(&(t->arg1));
 	reset_operand(&(t->arg2));
-	/*make_operand(q->arg1,&(t->arg1));
-	make_operand(q->arg2,&(t->arg2));*/
 	emit_instruction(t);
 }
 void generate_RETURN (struct quad* q) { 

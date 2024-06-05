@@ -92,6 +92,7 @@ typedef struct ScopeArray{
 #define EXPAND_SIZE 1024
 #define CURR_SIZE (total*sizeof(struct quad))
 #define NEW_SIZE (EXPAND_SIZE * sizeof(struct quad) + CURR_SIZE)
+#define MAX_NESTED_FUNC 512
 
 enum symbol_t { var_s, programfunc_s, libraryfunc_s };
 
