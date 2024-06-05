@@ -1,0 +1,10 @@
+x = a and b;
+y = a or b;
+t = true;
+f = false;
+
+if( x==f and y==t or 3<7 and not (7>=9)){
+	z++;
+} else {
+	z--;
+}
