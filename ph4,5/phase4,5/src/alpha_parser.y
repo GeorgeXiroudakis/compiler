@@ -149,8 +149,9 @@ unsigned libfuncCounter = 0;
 
 struct func_stack* head = NULL;
 
-unsigned func_skip[MAX_NESTED_FUNC] = {0};
-long int func_skip_top = -1;
+int num_of_active_funcs = 0;
+unsigned func_skip_inst_index;
+
 
 void expand_instructions();
 
@@ -173,8 +174,6 @@ void backpatch_retlist(struct return_list* ret,unsigned label);
 void printInstructions();
 void printEnum(FILE* file,struct vmarg* arg);
 void printValArray();
-void push_func_skip(unsigned label);
-unsigned pop_func_skip();
 
 void generate_ADD (struct quad* q);
 void generate_SUB (struct quad* q);
@@ -262,7 +261,8 @@ struct avm_memcell stack[AVM_STACKSIZE];
 double consts_getnumber(unsigned index);
 char* consts_getstring(unsigned index);
 char* libfuncs_getused(unsigned index);
-Function_t* userfuncs_getfunc(unsigned index);
+Function_t* userfuncs_getfunc(unsigned address);
+Function_t* userfuncs_getfunc_with_index(unsigned index);
 
 static void avm_initstack(void);
 struct avm_table* avm_tablenew(void);
@@ -873,7 +873,7 @@ lvalue: IDENTIFIER		{
 						}
 					} else {
 						$$ = makeExpression(libraryfunc_e, scopeLookUp(currScope, $1), NULL, NULL);
-					       printf("lala2\n");
+					       //printf("lala2\n");
 						   }
 				}     
       | DOUBLECOLON IDENTIFIER	{ 
@@ -921,7 +921,7 @@ call_lvalue: IDENTIFIER				{
 								 if(res != NULL){
 									if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
 									else {
-										printf("caling function %s\n", res->value.varVal->name);
+										//printf("caling function %s\n", res->value.varVal->name);
 										if(res->type == libfunc){
                                                                                          $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
                                                                                 }else {
@@ -1201,7 +1201,7 @@ funcdef: funcprefix funcargs funcblockstart funcbody funcblockend {
 					int offset = popandtop();
 					restorecurrscopeoffset(offset);
 					$1->value.funcVal->arglist = $2;
-					printf("%s\n", $1->value.funcVal->name);
+					//printf("%s\n", $1->value.funcVal->name);
 					$$ = $1;
 					struct expr* newExpr = makeExpression(programfunc_e, $1, NULL, NULL);
 					emit(FUNCEND, NULL, NULL, newExpr, 0, 0);
@@ -1971,24 +1971,9 @@ Function_t* top_funcstack(void){
 		while(temp->next != NULL){
 			temp = temp->next;
 		}
-		printf("%p\n", temp->func->retList);
+		//printf("%p\n", temp->func->retList);
 		return temp->func;
 	}
-}
-
-void push_func_skip(unsigned label){
-	if(func_skip_top == MAX_NESTED_FUNC){
-		avm_error("Exceeded the max amount of nested functions","");
-		return;
-	}
-	func_skip[++func_skip_top] = label;
-}
-unsigned pop_func_skip(){
-	if(func_skip_top == -1){
-		avm_error("No nested function to pop","");
-		return -1;
-	}
-	return func_skip[func_skip_top--];
 }
 
 
@@ -2191,7 +2176,7 @@ void make_booloperand(struct vmarg* arg, unsigned val){
 
 void make_retvaloperand(struct vmarg* arg){
 	arg->type = retval_a;
-	arg->val = -1;
+	arg->val = 0;
 }
 
 
@@ -2355,20 +2340,17 @@ void generate_GETRETVAL (struct quad* q) {
 }
 
 void generate_FUNCSTART (struct quad* q) { 
-	struct quad* qd = malloc(sizeof(struct quad));
-	qd->result = qd->arg1 = qd->arg2 = NULL;
-	qd->op = JUMP;
-	qd->label = qd->taddress = qd->line = 0;
-	
-	generate_JUMP(qd);
-	//struct instruction* jmp = malloc(sizeof(struct instruction));
-	//jmp->opcode = jmp_v;
-	//make_operand(qd->result,&(jmp->result));
-	//make_operand(qd->arg1,&(jmp->arg1));
-	//make_operand(qd->arg2,&(jmp->arg2));
-	push_func_skip(currInstr);
-	//emit_instruction(jmp);
+	num_of_active_funcs++;
 
+	if(num_of_active_funcs == 1){
+		struct quad* qd = malloc(sizeof(struct quad));
+		qd->result = qd->arg1 = qd->arg2 = NULL;
+		qd->op = JUMP;
+		qd->label = qd->taddress = qd->line = 0;
+		generate_JUMP(qd);
+		
+		func_skip_inst_index = currInstr;
+	}
 
 	SymbolTableEntry_t* f;
 	f = q->result->sym;
@@ -2387,6 +2369,9 @@ void generate_FUNCSTART (struct quad* q) {
 
 }
 void generate_FUNCEND (struct quad* q) { 
+	if(num_of_active_funcs == 1)instructions[func_skip_inst_index - 1].result.val = currInstr+1;
+	num_of_active_funcs--;
+
 	Function_t* f;
 	f = pop_funcstack();
 	backpatch_retlist(f->retList,nextinstructionlabel());
@@ -2408,7 +2393,7 @@ void generate_RETURN (struct quad* q) {
 	reset_operand(&(t->arg2));
 	emit_instruction(t);
 	Function_t* f = top_funcstack();
-	printf("here: %p\n", f);
+	//printf("here: %p\n", f);
 	
 	append_retList(f,nextinstructionlabel());
 	
@@ -2636,10 +2621,23 @@ char* libfuncs_getused(unsigned index){
 	return libfuncArray[index];
 }
 
-Function_t* userfuncs_getfunc(unsigned index){
-	if(index > funcCounter) yyerror("Index out of bounds on funcArray ");
-
+Function_t* userfuncs_getfunc_with_index(unsigned index){
+	if(index > funcCounter){
+		avm_error("function index out of bouds", "with index");
+		return NULL;
+	}
+	
 	return funcArray[index];
+
+}
+
+Function_t* userfuncs_getfunc(unsigned address){
+	for(int i = 0; i < funcCounter; i++){
+		if(funcArray[i]->qaddress == address - 1)return funcArray[i];
+	}
+	
+	avm_error("function not found", "userfuncs_getfunc");
+	return NULL;
 }
 
 static void avm_initstack(void){
@@ -2743,7 +2741,7 @@ struct avm_memcell* avm_translate_operand(struct vmarg* arg,struct avm_memcell* 
 				reg = malloc(sizeof(struct avm_memcell));
 			}
 			reg->type = userfunc_m;
-			reg->data.funcVal = userfuncs_getfunc(arg->val)->qaddress;
+			reg->data.funcVal = userfuncs_getfunc_with_index(arg->val)->qaddress + 1; //+1 to skip the skiping func jump
 			return reg;
 		}
 		
@@ -2788,7 +2786,7 @@ int execute_cycle(void){
 void execute_assign(struct instruction* t){
 	struct avm_memcell* lv = avm_translate_operand(&(t->result),(struct avm_memcell*) 0);
 	struct avm_memcell* rv = avm_translate_operand(&(t->arg1),&ax);
-
+	
 	assert(lv && ( &stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
 	assert(rv);
 
@@ -3272,7 +3270,7 @@ void avm_error(char* format,char* v){
 }
 
 void avm_warning(char* format,char* v){
-	fprintf(stderr, PURPLE "AVM:EROR at runtime: %s about %s\n" RESET, format, v);
+	fprintf(stderr, PURPLE "AVM:warning at runtime: %s about %s\n" RESET, format, v);
 }
 
 

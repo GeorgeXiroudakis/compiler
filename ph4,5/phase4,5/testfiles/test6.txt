@@ -1,3 +1,15 @@
-function f(x) {return  x;}
+og = 0;
 
-t = f(x);
+function f(x){
+	y = x + 5;
+	t = [5,6];
+	print("kati\n");
+	return print;
+}
+
+
+
+og = f(og)(og, "\n");
+
+//print("og = ", og, "\n");
+
