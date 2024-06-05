@@ -590,21 +590,38 @@ expr: assignexpr {	struct expr* temp;
 					emit(IF_EQ,$1,newexpr_constbool(1),NULL,0,0);
 					emit(JUMP,NULL,NULL,NULL,0,0);
 				  }*/
+				
+				struct expr* expr1 = $1;
+				struct expr* expr2 = $4;
+
+				printf("expr1 = %s, expr2 = %s\n", expr1->sym->symbol->name, expr2->sym->symbol->name);
+				printf("expr1->type = %d, expr2->type = %d\n", expr1->type, expr2->type);
+				
+				if($1->type != boolexpr_e){
+					if($1->truelist == 0) $1->truelist = newlist(nextquadlabel());
+					if($1->falselist == 0) $1->falselist = newlist(nextquadlabel() +1 );
+					emit(IF_EQ, $1, newexpr_constbool(1), NULL, 0, 0);
+					emit(JUMP, NULL, NULL, NULL, 0, 0);
+				}
 
 				  if($4->type != boolexpr_e){
-				  	$4->truelist = newlist(nextquadlabel());
-					$4->falselist = newlist(nextquadlabel() + 1);
+				  	if($4->truelist == 0) $4->truelist = newlist(nextquadlabel());
+					if($4->falselist == 0) $4->falselist = newlist(nextquadlabel() + 1);
 					emit(IF_EQ,$4,newexpr_constbool(1),NULL,0,0);
 					emit(JUMP,NULL,NULL,NULL,0,0);
 				  }
 
     				  if(*$2 == OP_AND){
-    				  	patchlist($1->truelist, $3);
-    				  	$$->truelist = $4->truelist;
+					if($1->type != boolexpr_e && $4->type!=boolexpr_e) patchlist($1->truelist, $3 + 2);
+    				  	else if ($1->type != boolexpr_e && $4->type == boolexpr_e) patchlist($1->truelist, $3 + 4); 
+					else patchlist($1->truelist, $3);
+					$$->truelist = $4->truelist;
     				  	$$->falselist = mergelist($1->falselist, $4->falselist);
     				  } else if(*$2 == OP_OR){
-    				  	patchlist($1->falselist, $3);
-    				  	$$->truelist = mergelist($1->truelist, $4->truelist);
+    				  	if($1->type != boolexpr_e && $4->type != boolexpr_e) patchlist($1->falselist, $3 + 2);
+					else if($1->type != boolexpr_e && $4->type == boolexpr_e) patchlist($1->falselist, $3 + 4);
+    				  	else patchlist($1->falselist, $3);
+					$$->truelist = mergelist($1->truelist, $4->truelist);
     				  	$$->falselist = $4->falselist;
     				  }
 				 //emit(*$2, newexpr_constbool($1->sym->boolVal), newexpr_constbool($3->sym->boolVal), $$, 0, 0);
@@ -1459,18 +1476,18 @@ int main(int argc, char **argv) {
 
 	yyparse();
 	
-//	printScopeLists();
+	printScopeLists();
 	printQuads();
 	
 	
-	generate_instructions();
+/*	generate_instructions();
 	printInstructions();
 	
 //	printValArray();
 
 	avm_initialize();
 	run_alphaprogram();
-
+*/
     	return 0;
 }
 
