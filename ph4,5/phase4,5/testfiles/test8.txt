@@ -1,7 +1,37 @@
 x = 10;
-for(a = 0; a < x; a++){
+gkshrujump = false;
+a = 12;
+t = false;
+
+function makeTrue(x){x = true; return x;}
+
+for(a = 0; not gkshrujump and a < x; a++){
 	x--;
+	print("-you know, right now x=",x," and ");
+	
+	if(a==2) t = true;	
+
+	if(t and not gkshrujump) print("...\n");
+
+	if( x == 7 ){
+		print("-i think it's time...\n");
+		gkshrujump = makeTrue(gkshrujump);
+	}
+	
+	if(not gkshrujump and (not gkshrujump or x<7)){
+		print("this still works even though ",x," is not less than 7.\n");
+	} else {
+		print("-wait what happend, why didn't it work?\n");
+	}
+
+	if( x == 9) print("-not for long tho...\n");
+	else if( x == 8 and not gkshrujump) print("-trust me, enjoy it while it lasts\n");
 }
 
-gkshrujump = q;
+if(not (gkshrujump==false and t==false)) print("-because a gkshrujump happened ;]\n");
+
+if(a == 3) print("and everyone knows...\n");
+
+gkshrujump = "the best jump";
+print("gkshrujump = ", gkshrujump, "!\n");
 
