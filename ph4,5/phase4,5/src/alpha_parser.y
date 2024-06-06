@@ -3348,36 +3348,48 @@ char* table_tostring(struct avm_memcell* m){ //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	printf("[ ");
 	for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
 		if((table->numIndexed[i]) == NULL) continue;
-		printf("{ %lf : ",table->numIndexed[i]->key.data.numVal);
-		switch(table->numIndexed[i]->value.type){
-			case number_m: printf("%lf",table->numIndexed[i]->value.data.numVal);break;
-			case string_m: printf("%s",table->numIndexed[i]->value.data.strVal);break;
-			case bool_m: printf("%s",bool_tostring(&(table->numIndexed[i]->value)));break;
-			case table_m: table_tostring(&(table->numIndexed[i]->value));break;
-			case userfunc_m: printf("%s",userfunc_tostring(&(table->numIndexed[i]->value)));break;
-			case libfunc_m: printf("%s",libfunc_tostring(&(table->numIndexed[i]->value)));break;
-			case nil_m: printf("nil");break;
-			case undef_m: printf("undef");break;
-			default : printf(" ");break;
+		struct avm_table_bucket* bucket = table->numIndexed[i];
+		while(bucket != NULL){
+			printf("{ %lf : ",bucket->key.data.numVal);
+			switch(bucket->value.type){
+				case number_m: printf("%lf",bucket->value.data.numVal);break;
+				case string_m: printf("%s",bucket->value.data.strVal);break;
+				case bool_m: printf("%s",bool_tostring(&(bucket->value)));break;
+				case table_m: table_tostring(&(bucket->value));break;
+				case userfunc_m: printf("%s",userfunc_tostring(&(bucket->value)));break;
+				case libfunc_m: printf("%s",libfunc_tostring(&(bucket->value)));break;
+				case nil_m: printf("nil");break;
+				case undef_m: printf("undef");break;
+				default : printf(" ");break;
+			}
+			
+			bucket = bucket->next;
+		
+			printf(" },");
 		}
-		printf(" },");
 	}
 	
 	for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
 		if((table->strIndexed[i]) == NULL) continue;
-		printf("{ %s : ",table->strIndexed[i]->key.data.strVal);
-		switch(table->strIndexed[i]->value.type){
-			case number_m: printf("%lf",table->strIndexed[i]->value.data.numVal);break;
-			case string_m: printf("%s",table->strIndexed[i]->value.data.strVal);break;
-			case bool_m: printf("%s",bool_tostring(&(table->strIndexed[i]->value)));break;
-			case table_m: table_tostring(&(table->strIndexed[i]->value));break;
-			case userfunc_m: printf("%s",userfunc_tostring(&(table->strIndexed[i]->value)));break;
-			case libfunc_m: printf("%s",libfunc_tostring(&(table->strIndexed[i]->value)));break;
-			case nil_m: printf("nil");break;
-			case undef_m: printf("undef");break;
-			default : printf(" ");break;
+		struct avm_table_bucket* bucket = table->strIndexed[i];
+		while(bucket != NULL){
+			printf("{ %s : ",bucket->key.data.strVal);
+			switch(bucket->value.type){
+				case number_m: printf("%lf",bucket->value.data.numVal);break;
+				case string_m: printf("%s",bucket->value.data.strVal);break;
+				case bool_m: printf("%s",bool_tostring(&(bucket->value)));break;
+				case table_m: table_tostring(&(bucket->value));break;
+				case userfunc_m: printf("%s",userfunc_tostring(&(bucket->value)));break;
+				case libfunc_m: printf("%s",libfunc_tostring(&(bucket->value)));break;
+				case nil_m: printf("nil");break;
+				case undef_m: printf("undef");break;
+				default : printf(" ");break;
+			}
+			
+			bucket = bucket->next;
+		
+			printf(" },");
 		}
-		printf(" },");
 	}
 	
 	printf(" ]");
