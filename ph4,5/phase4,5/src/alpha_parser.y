@@ -366,6 +366,7 @@ struct avm_memcell* avm_getactual(unsigned i);
 void avm_initialize (void);
 //void avm_registerlibfunc(char* id,library_func_t addr); TODO wat
 void libfunc_print(void);
+void libfunc_typeof(void);
 void avm_call_functor(struct avm_table* t);
 
 typedef char* (*tostring_func_t) (struct avm_memcell*m);
@@ -407,6 +408,17 @@ arithmetic_func_t arithmeticFuncs[] = {
 	mul_impl,
 	div_impl,
 	mod_impl
+};
+
+char* typeStrings[]={
+	"number",
+	"string",
+	"bool",
+	"table",
+	"userfunc",
+	"libfunc",
+	"nil",
+	"undef"
 };
 
 unsigned int avm_table_hash(const char *pcKey);
@@ -3165,6 +3177,18 @@ void libfunc_print(void){
 	}
 }
 
+void libfunc_typeof(void){
+
+	unsigned n = avm_totalactuals();
+
+	if(n!=1) avm_error("Only one argument is expected in 'typeof'.", "libfunc_typeof");
+	else{
+		avm_memcellclear(&retval);
+		retval.type = string_m;
+		retval.data.strVal = strdup(typeStrings[avm_getactual(0)->type]);
+	}
+}
+
 
 void avm_push_table_arg(struct avm_table* t){
 	stack[top].type = table_m;
@@ -3265,12 +3289,12 @@ void avm_memcellclear (struct avm_memcell* m){
 }
 
 void avm_error(char* format,char* v){
-	fprintf(stderr, RED "AVM:EROR at runtime: %s about %s\n" RESET, format, v);
+	fprintf(stderr, RED "AVM:EROR at runtime: %s at function %s\n" RESET, format, v);
 	executionFinished = 1;
 }
 
 void avm_warning(char* format,char* v){
-	fprintf(stderr, PURPLE "AVM:warning at runtime: %s about %s\n" RESET, format, v);
+	fprintf(stderr, PURPLE "AVM:warning at runtime: %s at function %s\n" RESET, format, v);
 }
 
 
@@ -3318,15 +3342,14 @@ char* bool_tostring(struct avm_memcell* m){
 
 }
 
-
 char* table_tostring(struct avm_memcell* m){ //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	return "nah bro";
 }
 
 char* userfunc_tostring(struct avm_memcell* m){
-	assert(m->data.funcVal <= funcCounter);
-	Function_t* f = funcArray[m->data.funcVal];
-	return strdup(f->name);
+	Function_t* f = avm_getfuncinfo(m->data.funcVal);
+	assert(f);
+	return strdup(f->name); //TODO: change the str to the one that's described on the faq
 }
 
 char* libfunc_tostring(struct avm_memcell* m){
