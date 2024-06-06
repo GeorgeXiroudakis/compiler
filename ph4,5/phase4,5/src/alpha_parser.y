@@ -676,7 +676,8 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 		 }
     | NOT expr {
 		
-		if($2->type != boolexpr_e){
+		struct expr* temp = $2;
+		if(($2->type != boolexpr_e) && ($2->type != constbool_e)){
 			$2->truelist = newlist(nextquadlabel());
 			$2->falselist = newlist(nextquadlabel() + 1);
 			emit(IF_EQ,$2,newexpr_constbool(1),NULL,0,0);
@@ -3173,7 +3174,7 @@ void libfunc_print(void){
 		}*/
 		printf("%s", s);
 		//puts(s);
-		free(s);
+		//free(s);
 	}
 }
 
@@ -3343,17 +3344,64 @@ char* bool_tostring(struct avm_memcell* m){
 }
 
 char* table_tostring(struct avm_memcell* m){ //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	return "nah bro";
+	struct avm_table* table = m->data.tableVal;
+	printf("[ ");
+	for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
+		if((table->numIndexed[i]) == NULL) continue;
+		printf("{ %lf : ",table->numIndexed[i]->key.data.numVal);
+		switch(table->numIndexed[i]->value.type){
+			case number_m: printf("%lf",table->numIndexed[i]->value.data.numVal);break;
+			case string_m: printf("%s",table->numIndexed[i]->value.data.strVal);break;
+			case bool_m: printf("%s",bool_tostring(&(table->numIndexed[i]->value)));break;
+			case table_m: table_tostring(&(table->numIndexed[i]->value));break;
+			case userfunc_m: printf("%s",userfunc_tostring(&(table->numIndexed[i]->value)));break;
+			case libfunc_m: printf("%s",libfunc_tostring(&(table->numIndexed[i]->value)));break;
+			case nil_m: printf("nil");break;
+			case undef_m: printf("undef");break;
+			default : printf(" ");break;
+		}
+		printf(" },");
+	}
+	
+	for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
+		if((table->strIndexed[i]) == NULL) continue;
+		printf("{ %s : ",table->strIndexed[i]->key.data.strVal);
+		switch(table->strIndexed[i]->value.type){
+			case number_m: printf("%lf",table->strIndexed[i]->value.data.numVal);break;
+			case string_m: printf("%s",table->strIndexed[i]->value.data.strVal);break;
+			case bool_m: printf("%s",bool_tostring(&(table->strIndexed[i]->value)));break;
+			case table_m: table_tostring(&(table->strIndexed[i]->value));break;
+			case userfunc_m: printf("%s",userfunc_tostring(&(table->strIndexed[i]->value)));break;
+			case libfunc_m: printf("%s",libfunc_tostring(&(table->strIndexed[i]->value)));break;
+			case nil_m: printf("nil");break;
+			case undef_m: printf("undef");break;
+			default : printf(" ");break;
+		}
+		printf(" },");
+	}
+	
+	printf(" ]");
+
+
+	return "";
 }
 
 char* userfunc_tostring(struct avm_memcell* m){
 	Function_t* f = avm_getfuncinfo(m->data.funcVal);
 	assert(f);
-	return strdup(f->name); //TODO: change the str to the one that's described on the faq
+	int length1,length2;
+	length1 = snprintf(NULL,0,"%u",m->data.funcVal);
+	length2 = strlen(f->name);
+	char* str_userfunc = malloc(sizeof(char) * (length1 + length2) + 30);
+	sprintf(str_userfunc,"Userfunc %s at address %u",f->name,m->data.funcVal);
+	return str_userfunc; //TODO: change the str to the one that's described on the faq
 }
 
 char* libfunc_tostring(struct avm_memcell* m){
-	return strdup(m->data.libfuncVal);	
+	char* str_libfunc = malloc(sizeof(char) * strlen(m->data.libfuncVal) + 30);
+	sprintf(str_libfunc,"Libfunc %s",m->data.libfuncVal);
+
+	return str_libfunc;	
 }
 
 char* nil_tostring(struct avm_memcell* m){

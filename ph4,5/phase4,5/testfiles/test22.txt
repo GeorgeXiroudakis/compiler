@@ -1,0 +1,11 @@
+x = "control n";
+
+x = "chief";
+
+function f(x) {
+	return x;
+}
+
+t = [{ "kalhspera" : 1 },{ "gkshru" : 2}, { "vazwkatiaallo" : "gkampi"}, { 5 : true }, {6 : print}, {"eksada" : f} ];
+
+print(t,"\n");

@@ -1,0 +1,6 @@
+x = 1;
+function this(x){
+	x = 2;
+}
+
+print(this,"\n");
