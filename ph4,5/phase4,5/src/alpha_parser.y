@@ -589,47 +589,47 @@ expr: assignexpr {	struct expr* temp;
 					 }
     | expr boolop quadsave expr %prec AND {$$ = makeExpression(boolexpr_e,newtemp(),NULL,NULL);
 				 
-				 /* if($1->type != boolexpr_e){
-				  	$1->truelist = newlist(nextquadlabel());
-					$1->falselist = newlist(nextquadlabel() + 1);
-					emit(IF_EQ,$1,newexpr_constbool(1),NULL,0,0);
-					emit(JUMP,NULL,NULL,NULL,0,0);
-				  }*/
-				
-				struct expr* expr1 = $1;
-				struct expr* expr2 = $4;
+						if($1->type != boolexpr_e){
+							if($1->truelist == 0) $1->truelist = newlist(nextquadlabel());
+							if($1->falselist == 0) $1->falselist = newlist(nextquadlabel() +1 );
+							emit(IF_EQ, $1, newexpr_constbool(1), NULL, 0, 0);
+							emit(JUMP, NULL, NULL, NULL, 0, 0);
+						}
 
-				//printf("expr1 = %s, expr2 = %s\n", expr1->sym->symbol->name, expr2->sym->symbol->name);
-				//printf("expr1->type = %d, expr2->type = %d\n", expr1->type, expr2->type);
-				
-				if($1->type != boolexpr_e){
-					if($1->truelist == 0) $1->truelist = newlist(nextquadlabel());
-					if($1->falselist == 0) $1->falselist = newlist(nextquadlabel() +1 );
-					emit(IF_EQ, $1, newexpr_constbool(1), NULL, 0, 0);
-					emit(JUMP, NULL, NULL, NULL, 0, 0);
-				}
+				  		if($4->type != boolexpr_e){
+				  			if($4->truelist == 0) $4->truelist = newlist(nextquadlabel());
+							if($4->falselist == 0) $4->falselist = newlist(nextquadlabel() + 1);
+							emit(IF_EQ,$4,newexpr_constbool(1),NULL,0,0);
+							emit(JUMP,NULL,NULL,NULL,0,0);
+				  		}
 
-				  if($4->type != boolexpr_e){
-				  	if($4->truelist == 0) $4->truelist = newlist(nextquadlabel());
-					if($4->falselist == 0) $4->falselist = newlist(nextquadlabel() + 1);
-					emit(IF_EQ,$4,newexpr_constbool(1),NULL,0,0);
-					emit(JUMP,NULL,NULL,NULL,0,0);
-				  }
+    				  		if(*$2 == OP_AND){
+							if($1->type != boolexpr_e && $4->type!=boolexpr_e) patchlist($1->truelist, $3 + 2);
+    				  			/*$4 == boolexpr makes +2 quads after the quadsave, +2 more because of the quads made because $1 is not a boolexpr*/
+							else if ($1->type != boolexpr_e && $4->type == boolexpr_e) patchlist($1->truelist, $3 + 4);
+							else patchlist($1->truelist, $3);
+					
+							/*the emits for $4 are before the emits for $1*/
+							if($1->type!=boolexpr_e && $4->type == boolexpr_e){ $$->truelist = $3 + 2; patchlist($4->truelist, $3 + 2);}
+							/*$$->truelist has the quad of the last check to be patched at ifprefix and $4->truelist has the quad of the next check to be checked now*/
+							else $$->truelist = $4->truelist; /*if everything has been done in order, $4's checks are the same as $$'s*/
 
-    				  if(*$2 == OP_AND){
-					if($1->type != boolexpr_e && $4->type!=boolexpr_e) patchlist($1->truelist, $3 + 2);
-    				  	else if ($1->type != boolexpr_e && $4->type == boolexpr_e) patchlist($1->truelist, $3 + 4); 
-					else patchlist($1->truelist, $3);
-					$$->truelist = $4->truelist;
-    				  	$$->falselist = mergelist($1->falselist, $4->falselist);
-    				  } else if(*$2 == OP_OR){
-    				  	if($1->type != boolexpr_e && $4->type != boolexpr_e) patchlist($1->falselist, $3 + 2);
-					else if($1->type != boolexpr_e && $4->type == boolexpr_e) patchlist($1->falselist, $3 + 4);
-    				  	else patchlist($1->falselist, $3);
-					$$->truelist = mergelist($1->truelist, $4->truelist);
-    				  	$$->falselist = $4->falselist;
-    				  }
-				 //emit(*$2, newexpr_constbool($1->sym->boolVal), newexpr_constbool($3->sym->boolVal), $$, 0, 0);
+    				  			$$->falselist = mergelist($1->falselist, $4->falselist);
+    				  
+
+						}else if(*$2 == OP_OR){
+    				  			/*same logic as in AND but with the falselist instead of the truelist*/
+							if($1->type != boolexpr_e && $4->type != boolexpr_e) patchlist($1->falselist, $3 + 2);
+							else if($1->type != boolexpr_e && $4->type == boolexpr_e) patchlist($1->falselist, $3 + 4 + 2); /*+2 because we want to reach the "assign false" now*/ 
+							else patchlist($1->falselist, $3);
+						
+							$$->truelist = mergelist($1->truelist, $4->truelist);
+
+    				  			/*$$->falselist = $3 +2 for the extra quads made from $4 being a boolexpr and +1 to go to the "jump" quad that needs to be patched at ifprefix*/
+							if($1->type!=boolexpr_e && $4->type == boolexpr_e) {$$->falselist = $3 + 3; patchlist($4->falselist, $3 + 2); }
+							else $$->falselist = $4->falselist;
+    				  		}
+				 		//emit(*$2, newexpr_constbool($1->sym->boolVal), newexpr_constbool($3->sym->boolVal), $$, 0, 0);
 				 }
     | term { $$ = makeExpression($1->type,$1->sym,$1->index,NULL);
     		$$->truelist = $1->truelist;
@@ -1481,7 +1481,7 @@ int main(int argc, char **argv) {
 
 	yyparse();
 	
-	//printScopeLists();
+//	printScopeLists();
 	printQuads();
 	
 	
