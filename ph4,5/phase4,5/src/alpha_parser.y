@@ -152,8 +152,9 @@ unsigned libfuncCounter = 0;
 
 struct func_stack* head = NULL;
 
-int num_of_active_funcs = 0;
-unsigned func_skip_inst_index;
+int func_skip_inst_index = -1;
+
+unsigned func_skip_stack[MAX_NESTED_FUNC];
 
 
 void expand_instructions();
@@ -763,7 +764,7 @@ term: PARENTHOPEN expr PARENTHCLOSE {$$ = $2;}
 			}
     | primary {$$ = makeExpression($1->type,$1->sym, $1->index,NULL);
     	       $$->truelist = $1->truelist;
-	       $$->falselist = $1->falselist;
+		       $$->falselist = $1->falselist;
 	      }
     ;
 
@@ -842,7 +843,7 @@ assignexpr: lvalue EQUAL expr {
 primary: lvalue {$$ = emit_iftableitem($1);}
        | call
        | objectdef  {$$ = makeExpression($1->type,$1->sym,$1->index,NULL);} 
-       | PARENTHOPEN funcdef PARENTHCLOSE { $$ = makeExpression($2->type,$2,NULL,NULL); }
+       | PARENTHOPEN funcdef PARENTHCLOSE { $$ = makeExpression(programfunc_e,$2,NULL,NULL); }
        | const {$$ = makeExpression($1->type,$1->sym,$1->index,NULL); }
        ;
 
@@ -862,7 +863,7 @@ lvalue: IDENTIFIER		{
 									if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
 									else if(res->gramType == gr_string) $$ = makeExpression(var_e,res,NULL,NULL);
 									else if(res->gramType == gr_boolean) $$ = makeExpression(var_e,res,NULL,NULL);
-									else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
+									else if(res->gramType == gr_nil) $$ = makeExpression(var_e,res,NULL,NULL);
 									else if(res->gramType == gr_integer) $$ = makeExpression(var_e,res,NULL,NULL);
 									else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
 									else if(res->gramType == gr_real) $$ = makeExpression(var_e,res,NULL,NULL);
@@ -890,7 +891,7 @@ lvalue: IDENTIFIER		{
 							if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
 							else if(res->gramType == gr_string) $$ = makeExpression(var_e,res,NULL,NULL);
 							else if(res->gramType == gr_boolean) $$ = makeExpression(var_e,res,NULL,NULL);
-							else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
+							else if(res->gramType == gr_nil) $$ = makeExpression(var_e,res,NULL,NULL);
 							else if(res->gramType == gr_integer) $$ = makeExpression(var_e,res,NULL,NULL);
 							else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
 							else if(res->gramType == gr_real) $$ = makeExpression(var_e,res,NULL,NULL);
@@ -911,7 +912,7 @@ lvalue: IDENTIFIER		{
 					if(res->gramType == gr_conststring) $$ = makeExpression(conststring_e,res,NULL,NULL);
 					else if(res->gramType == gr_string) $$ = makeExpression(var_e,res,NULL,NULL);
 					else if(res->gramType == gr_boolean) $$ = makeExpression(var_e,res,NULL,NULL);
-					else if(res->gramType == gr_nil) $$ = makeExpression(nil_e,res,NULL,NULL);
+					else if(res->gramType == gr_nil) $$ = makeExpression(var_e,res,NULL,NULL);
 					else if(res->gramType == gr_integer) $$ = makeExpression(var_e,res,NULL,NULL);
 					else if(res->gramType == gr_constinteger) $$ = makeExpression(constnum_e,res,NULL,NULL);
 					else if(res->gramType == gr_real) $$ = makeExpression(var_e,res,NULL,NULL);
@@ -1534,7 +1535,7 @@ int main(int argc, char **argv) {
 	generate_instructions();
 	printInstructions();
 	
-	//printValArray();
+//	printValArray();
 
 	avm_initialize();
 	run_alphaprogram();
@@ -1955,6 +1956,27 @@ int popandtop(void){
 
 
 /* PHASE 4,5 */
+
+void push_to_skip_stack(unsigned index){
+	if(func_skip_inst_index >= MAX_NESTED_FUNC){
+		avm_error("stackoverflow", "skip stack");
+		return;
+	}
+	
+	func_skip_stack[++func_skip_inst_index] = index;
+}
+
+unsigned pop_from_skip_stack(){
+	if(func_skip_inst_index <= -1){
+		avm_error("stack undeflow", "skip stack");
+		return 0;
+	}
+
+	return func_skip_stack[func_skip_inst_index--];
+
+}
+
+
 
 void expand_instructions(){
 	assert(totalInstr == currInstr - 1);
@@ -2386,17 +2408,15 @@ void generate_GETRETVAL (struct quad* q) {
 }
 
 void generate_FUNCSTART (struct quad* q) { 
-	num_of_active_funcs++;
 
-	if(num_of_active_funcs == 1){
-		struct quad* qd = malloc(sizeof(struct quad));
-		qd->result = qd->arg1 = qd->arg2 = NULL;
-		qd->op = JUMP;
-		qd->label = qd->taddress = qd->line = 0;
-		generate_JUMP(qd);
+	struct quad* qd = malloc(sizeof(struct quad));
+	qd->result = qd->arg1 = qd->arg2 = NULL;
+	qd->op = JUMP;
+	qd->label = qd->taddress = qd->line = 0;
+	generate_JUMP(qd);
 		
-		func_skip_inst_index = currInstr;
-	}
+	push_to_skip_stack(currInstr);
+
 
 	SymbolTableEntry_t* f;
 	f = q->result->sym;
@@ -2415,8 +2435,7 @@ void generate_FUNCSTART (struct quad* q) {
 
 }
 void generate_FUNCEND (struct quad* q) { 
-	if(num_of_active_funcs == 1)instructions[func_skip_inst_index - 1].result.val = currInstr+1;
-	num_of_active_funcs--;
+	instructions[pop_from_skip_stack() - 1].result.val = currInstr+1;
 
 	Function_t* f;
 	f = pop_funcstack();
@@ -2833,13 +2852,9 @@ void execute_assign(struct instruction* t){
 	struct avm_memcell* lv = avm_translate_operand(&(t->result),(struct avm_memcell*) 0);
 	struct avm_memcell* rv = avm_translate_operand(&(t->arg1),&ax);
 	
-//	assert(lv && ( &stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
-
-	assert(lv);
+	assert(lv && ( &stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
 
 	assert(rv);
-	assert(( &stack[AVM_STACKSIZE - 1] >= lv));
-	assert(lv > &stack[top]);
 
 	avm_assign(lv,rv);
 }
@@ -3198,19 +3213,6 @@ void avm_calllibfunc(char* id){
 		totalActuals = 0;
 	
 		call_libraryFunc(f->name);
-
-		/*if( strcmp(f->name, "print") == 0 ) libfunc_print();
-		else if(strcmp(f->name, "input") == 0) libfunc_input();
-		else if(strcmp(f->name, "objectmemberkeys") == 0) libfunc_objectmemberkeys();
-		else if(strcmp(f->name, "objecttotalmembers") == 0) libfunc_objecttotalmembers();
-		else if(strcmp(f->name, "objectcopy") == 0) libfunc_objectcopy();
-		else if(strcmp(f->name, "totalarguments") == 0) libfunc_totalarguments();
-		else if(strcmp(f->name, "argument") == 0) libfunc_argument();
-		else if(strcmp(f->name, "typeof") == 0) libfunc_typeof();
-		else if(strcmp(f->name, "strtonum") == 0) libfunc_strtonum();
-		else if(strcmp(f->name, "sqrt") == 0) libfunc_sqrt();
-		else if(strcmp(f->name, "sin") == 0) libfunc_sin();
-		else if(strcmp(f->name, "cos") == 0) libfunc_cos();*/
 
 		if(!executionFinished) /*An error may naturally occur inside*/
 			execute_funcexit((struct instruction*) 0); /*Return sequence*/
