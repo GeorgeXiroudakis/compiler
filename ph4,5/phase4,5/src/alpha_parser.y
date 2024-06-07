@@ -2259,7 +2259,7 @@ void patch_incomplete_jumps(){
 		if(temp->iaddress == currQuad){
 			instructions[temp->instrNo].result.val = tcodeSize;
 		}else{
-			instructions[temp->instrNo].result.val = quads[temp->iaddress].taddress;
+			if(temp->iaddress != 0)instructions[temp->instrNo].result.val = quads[temp->iaddress].taddress;
 		}
 		i++;
 		temp = temp->next;
@@ -2833,8 +2833,13 @@ void execute_assign(struct instruction* t){
 	struct avm_memcell* lv = avm_translate_operand(&(t->result),(struct avm_memcell*) 0);
 	struct avm_memcell* rv = avm_translate_operand(&(t->arg1),&ax);
 	
-	assert(lv && ( &stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
+//	assert(lv && ( &stack[AVM_STACKSIZE - 1] >= lv && lv > &stack[top] || lv == &retval));
+
+	assert(lv);
+
 	assert(rv);
+	assert(( &stack[AVM_STACKSIZE - 1] >= lv));
+	assert(lv > &stack[top]);
 
 	avm_assign(lv,rv);
 }
