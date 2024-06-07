@@ -775,7 +775,7 @@ assignexpr: lvalue EQUAL expr {
 								}
 								else{
 										if($1->type == tableitem_e){
-											emit(TABLESETELEM,$1,$1->index,$3,0,0);
+											emit(TABLESETELEM,$1->index,$3,$1,0,0);
 											$$ = emit_iftableitem($1);
 											$$->type = assignexpr_e;
 										}else{
@@ -1535,7 +1535,7 @@ int main(int argc, char **argv) {
 	generate_instructions();
 	printInstructions();
 	
-//	printValArray();
+	printValArray();
 
 	avm_initialize();
 	run_alphaprogram();
