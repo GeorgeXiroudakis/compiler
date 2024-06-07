@@ -1,0 +1,23 @@
+t = [1,2,3,4,5];
+t2 = [];
+t3 = [1,2,["s","t","r"], "lemao"];
+t4 = [{0:8}, {"ok":true}, {6:cos}];
+
+print(objecttotalmembers(t),"\n");
+print(objecttotalmembers(t2),"\n");
+print(objecttotalmembers(t3),"\n");
+print(objecttotalmembers(t4),"\n");
+
+x = t4[6](60);
+y = t3[2];
+
+t5 = objectmemberkeys(t4);
+print("t5 = ", t5, "\n");
+//print(objecttotalmembers(y),"\n");
+//print(y,"\n");
+
+t6 = objectcopy(t3);
+print("t3=",t3,"\nt6=", t6, "\n");
+
+//print(argument(0),"\n");
+//print(x,"\n");

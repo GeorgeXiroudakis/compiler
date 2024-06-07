@@ -1,0 +1,21 @@
+f = 5;
+print(totalarguments(), "\n");
+
+function func(x,y,u, h){
+    	print(argument(0),"\n");
+	print(argument(3), "\n");
+	return totalarguments();
+}
+
+print("tottal args: ", func(1,2,4, 5), "\n");
+
+
+
+
+
+
+
+
+
+
+

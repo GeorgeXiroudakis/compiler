@@ -1,0 +1,5 @@
+print(cos(90),"\n");
+print(sin(270),"\n");
+
+print(sin(60),"\n");
+print(cos(60),"\n");

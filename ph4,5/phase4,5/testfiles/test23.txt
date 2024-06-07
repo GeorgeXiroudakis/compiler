@@ -1,0 +1,13 @@
+x = 9;
+
+function f(){print("f\n"); return f;}
+
+x = f();
+print(x,"\n");
+x();
+
+g;
+
+g = x;
+g();
+

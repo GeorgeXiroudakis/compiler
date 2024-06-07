@@ -1,0 +1,15 @@
+x = 8;
+y = "str";
+d = true;
+function f(){ok++;}
+
+t = [x,y,d,f,nil];
+
+for(i=0; i<5; i++){
+	print("type of t[",i,"]=",typeof(t[i]),"\n");
+}
+
+print("type of t = ", typeof(t), "\n");
+print("type of print = ", typeof(print), "\n");
+
+extra = 9;

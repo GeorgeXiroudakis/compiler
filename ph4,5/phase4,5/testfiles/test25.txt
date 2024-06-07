@@ -1,0 +1,17 @@
+x = 9;
+y = 4;
+
+h = 36;
+p = 3.14;
+
+print(sqrt(x),"\n");
+print(sqrt(y),"\n");
+print(sqrt(h),"\n");
+print(sqrt(p),"\n");
+
+print(sqrt(2),"\n");
+print(sqrt(-9),"\n");
+print(sqrt("str"),"\n");
+function c(){}
+print(sqrt(c),"\n");
+
