@@ -4,6 +4,8 @@
 #include <assert.h>
 #include "lib/symtable.h"
 #include <string.h>
+#include <math.h>
+#include <errno.h>
 
 
 int yyerror (char* yyProvideMessage);
@@ -366,7 +368,17 @@ struct avm_memcell* avm_getactual(unsigned i);
 void avm_initialize (void);
 //void avm_registerlibfunc(char* id,library_func_t addr); TODO wat
 void libfunc_print(void);
+void libfunc_input(void);
+void libfunc_objectmemberkeys(void);
+void libfunc_objecttotalmembers(void);
+void libfunc_objectcopy(void);
+void libfunc_totalarguments(void);
+void libfunc_argument(void);
 void libfunc_typeof(void);
+void libfunc_strtonum(void);
+void libfunc_sin(void);
+void libfunc_cos(void);
+void libfunc_sqrt(void);
 void avm_call_functor(struct avm_table* t);
 
 typedef char* (*tostring_func_t) (struct avm_memcell*m);
@@ -413,7 +425,7 @@ arithmetic_func_t arithmeticFuncs[] = {
 char* typeStrings[]={
 	"number",
 	"string",
-	"bool",
+	"boolean",
 	"table",
 	"userfunc",
 	"libfunc",
@@ -912,8 +924,10 @@ lvalue: IDENTIFIER		{
 call_lvalue: IDENTIFIER				{
 								SymbolTableEntry_t *res = upStreamLookUp(currScope,$1);
 								  if(res != NULL) {
-                                                                        if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) yyerror("Function not found");
-                                                                        else {
+                                                                        if((res->type != userfunc && res->type != libfunc) && (res->gramType != gr_funcaddr)) {
+										$$ = makeExpression(var_e, res, NULL, NULL);
+									//	yyerror("Function not found");
+                                                                        } else {
                                                                                 //printf("calling function %s\n",res->grammarVal.funcPtr->symbol->name);
                                                                                 if(res->type == libfunc){
                                                                                          $$ = makeExpression(libraryfunc_e,res,NULL,NULL);
@@ -924,7 +938,6 @@ call_lvalue: IDENTIFIER				{
                                                                  }else{
                                                                  $$ = makeExpression(nil_e,NULL,NULL,NULL);
                                                                  yyerror("Function not found");
-
                                                                  }
 								
 								 
@@ -966,7 +979,7 @@ member: lvalue DOT IDENTIFIER {$$ = member_item($1,$3);}
 
 call: call PARENTHOPEN {elistFlag = 0;}elist PARENTHCLOSE {
     					   $$ = makeCall($$,$4);
-						//elistFlag = 0; 
+						elistFlag = 0; 
 					  }
     | call_lvalue callsuffix {
     			  $1 = emit_iftableitem($1);
@@ -997,14 +1010,14 @@ call: call PARENTHOPEN {elistFlag = 0;}elist PARENTHCLOSE {
 			  } 
 			 
 			  $$ = makeCall($1,$2->elist);
-			  //elistFlag = 0;
+			  elistFlag = 0;
 
 			  }
     		
     | PARENTHOPEN funcdef PARENTHCLOSE PARENTHOPEN {elistFlag = 0;}elist PARENTHCLOSE {
     								      	struct expr* func = makeExpression(programfunc_e,$2,NULL,NULL);
 									$$ = makeCall(func,$6);
-									//elistFlag = 0;
+									elistFlag = 0;
 								      }
     ;
 
@@ -1122,7 +1135,7 @@ indexed: indexedelem   {
 
 
 objectdef: SQBRACKETOPEN {elistFlag = 0;}elist SQBRACKETCLOSE {
-	 						//	elistFlag = 0;
+	 							//elistFlag = 0;
 								struct expr* t = makeExpression(newtable_e,newtemp(),NULL,NULL); 
 								t->sym->boolVal = 1;
 								emit(TABLECREATE,NULL,NULL,t,0,0);
@@ -1279,19 +1292,19 @@ idlist: IDENTIFIER {SymbolTableEntry_t* res = scopeLookUp(currScope,$1);
       |
       ;
 
-ifprefix: IF PARENTHOPEN expr PARENTHCLOSE {
+ifprefix: IF PARENTHOPEN {elistFlag=0;} expr PARENTHCLOSE {
 						
-						if($3->type == boolexpr_e){
+						if($4->type == boolexpr_e){
 							
-							patchlist($3->truelist, nextquadlabel());
-							emit(ASSIGN,newexpr_constbool(1),NULL,$3,0,0);
+							patchlist($4->truelist, nextquadlabel());
+							emit(ASSIGN,newexpr_constbool(1),NULL,$4,0,0);
 			  				emit(JUMP,NULL,NULL,NULL,nextquadlabel() + 2,0);
-			  				patchlist($3->falselist, nextquadlabel());
-			  				emit(ASSIGN,newexpr_constbool(0),NULL,$3,0,0);
+			  				patchlist($4->falselist, nextquadlabel());
+			  				emit(ASSIGN,newexpr_constbool(0),NULL,$4,0,0);
 						 	
 						 }
 						
-						emit(IF_EQ, $3, newexpr_constbool(1), NULL, nextquadlabel() + 2, 0);
+						emit(IF_EQ, $4, newexpr_constbool(1), NULL, nextquadlabel() + 2, 0);
 						
 						$$ = nextquadlabel();
 
@@ -1335,7 +1348,7 @@ whilestart: WHILE {
 		    $$ = nextquadlabel();  
 		  }
 
-whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); } expr PARENTHCLOSE  {
+whilecond: PARENTHOPEN {currScope++; allocateScopes(currScope); elistFlag=0; } expr PARENTHCLOSE  {
 	 				   currScope--;
 	 				   
 	 				   if($3->type == boolexpr_e){
@@ -2636,7 +2649,7 @@ char* libfuncs_getused(unsigned index){
 
 Function_t* userfuncs_getfunc_with_index(unsigned index){
 	if(index > funcCounter){
-		avm_error("function index out of bouds", "with index");
+		avm_error("function index out of bouds", "userfuncs_getfunc_with_index");
 		return NULL;
 	}
 	
@@ -2954,8 +2967,8 @@ void execute_call(struct instruction* t){
 		case table_m: {avm_call_functor(func->data.tableVal); break;}
 
 		default: {
-			char* s = avm_tostring(func);
-			avm_error("call: cannot bind '%s' to function!",s);
+			char* s = strdup(avm_tostring(func));
+			avm_error("call: cannot bind wanted function",s);
 			free(s);
 			executionFinished = 1;
 		}
@@ -3020,7 +3033,7 @@ void execute_tablegetelem(struct instruction* t){
 	lv->type = nil_m; /*Default value*/
 
 	if(r->type != table_m){
-		avm_error("Incorrect table type",NULL);
+		avm_error("Incorrect table type","execute_tablegetelem");
 	}
 	else{
 		struct avm_memcell* content = avm_tablegetelem(r->data.tableVal,i);
@@ -3044,8 +3057,9 @@ void execute_tablesetelem(struct instruction* t){
 
 	if(r->type != table_m)
 		avm_error("Incorrect table type",NULL);
-	else
+	else{
 		avm_tablesetelem(r->data.tableVal,i,c);
+	}
 }
 
 
@@ -3127,6 +3141,24 @@ unsigned avm_get_envvalue(unsigned i){
 	return val;
 }
 
+void call_libraryFunc(const char *name){
+
+	if( strcmp(name, "print") == 0 ) libfunc_print();
+	else if(strcmp(name, "input") == 0) libfunc_input();
+	else if(strcmp(name, "objectmemberkeys") == 0) libfunc_objectmemberkeys();
+	else if(strcmp(name, "objecttotalmembers") == 0) libfunc_objecttotalmembers();
+	else if(strcmp(name, "objectcopy") == 0) libfunc_objectcopy();
+	else if(strcmp(name, "totalarguments") == 0) libfunc_totalarguments();
+	else if(strcmp(name, "argument") == 0) libfunc_argument();
+	else if(strcmp(name, "typeof") == 0) libfunc_typeof();
+	else if(strcmp(name, "strtonum") == 0) libfunc_strtonum();
+	else if(strcmp(name, "sqrt") == 0) libfunc_sqrt();
+	else if(strcmp(name, "sin") == 0) libfunc_sin();
+	else if(strcmp(name, "cos") == 0) libfunc_cos();
+	else avm_error("Library function not found", "call_libraryFunc");
+
+}
+
 void avm_calllibfunc(char* id){
 	SymbolTableEntry_t* libFuncEntry = scopeLookUp(0, id);
 	if(libFuncEntry == NULL || libFuncEntry->unionType != unionFunc ||libFuncEntry->value.funcVal == NULL){
@@ -3140,7 +3172,20 @@ void avm_calllibfunc(char* id){
 		topsp = top; /*Enter function sequence. No stack locals. */
 		totalActuals = 0;
 	
-		if( strcmp(f->name, "print") == 0 ) libfunc_print();
+		call_libraryFunc(f->name);
+
+		/*if( strcmp(f->name, "print") == 0 ) libfunc_print();
+		else if(strcmp(f->name, "input") == 0) libfunc_input();
+		else if(strcmp(f->name, "objectmemberkeys") == 0) libfunc_objectmemberkeys();
+		else if(strcmp(f->name, "objecttotalmembers") == 0) libfunc_objecttotalmembers();
+		else if(strcmp(f->name, "objectcopy") == 0) libfunc_objectcopy();
+		else if(strcmp(f->name, "totalarguments") == 0) libfunc_totalarguments();
+		else if(strcmp(f->name, "argument") == 0) libfunc_argument();
+		else if(strcmp(f->name, "typeof") == 0) libfunc_typeof();
+		else if(strcmp(f->name, "strtonum") == 0) libfunc_strtonum();
+		else if(strcmp(f->name, "sqrt") == 0) libfunc_sqrt();
+		else if(strcmp(f->name, "sin") == 0) libfunc_sin();
+		else if(strcmp(f->name, "cos") == 0) libfunc_cos();*/
 
 		if(!executionFinished) /*An error may naturally occur inside*/
 			execute_funcexit((struct instruction*) 0); /*Return sequence*/
@@ -3178,6 +3223,258 @@ void libfunc_print(void){
 	}
 }
 
+int isNumber(const char* str) {
+    char* endptr;
+    strtod(str, &endptr);
+    return *endptr == '\0';
+}
+
+int isBoolean(const char* str, int* value) {
+    if (strcmp(str, "true") == 0) {
+        *value = 1;
+        return 1;
+    } else if (strcmp(str, "false") == 0) {
+        *value = 0;
+        return 1;
+    }
+    return 0;
+}
+
+int isNil(const char* str) {
+    return strcmp(str, "nil") == 0;
+}
+
+int isQuotedString(const char* str) {
+    int len = strlen(str);
+    return len >= 2 && str[0] == '"' && str[len - 1] == '"';
+}
+
+void libfunc_input(void){
+    char* input = malloc(sizeof(char) * MAX_INPUTSIZE);
+    if (fgets(input, MAX_INPUTSIZE, stdin) == NULL) {
+        avm_warning("fgets failed in libfunc input", "input");
+        retval.type = nil_m;
+    }
+
+    //if present revome trailing new line
+    input[strcspn(input, "\n")] = 0;
+
+    if (isQuotedString(input)) {
+        retval.type = string_m;
+        retval.data.strVal = input;
+        return;
+    }
+
+    if (isNumber(input)) {
+        retval.type = number_m;
+        retval.data.numVal = atof(input);
+        free(input);
+        return;
+    }
+
+    int intValue;
+
+    if (isBoolean(input, &intValue)) {
+        retval.type = bool_m;
+        retval.data.boolVal = intValue;
+        free(input);
+        return;
+    }
+
+    if (isNil(input)) {
+        retval.type = nil_m;
+        free(input);
+        return;
+    }
+
+    //else treat as string and put it in quats
+    retval.type = string_m;
+    int length = strlen(input);
+    char* quotedString = malloc(length + 3); // Add space for quotes and null terminator
+    if (quotedString == NULL) {
+        free(input);
+        return;
+    }
+    quotedString[0] = '"';
+    strcpy(quotedString + 1, input);
+    quotedString[length + 1] = '"';
+    quotedString[length + 2] = '\0';
+    retval.data.strVal = quotedString;
+    free(input);
+}
+
+void libfunc_objectmemberkeys(){
+	struct avm_table* oldtable;
+	struct avm_table* newtable;
+	unsigned n = avm_totalactuals();
+	double cnt = 0;
+
+	if(n != 1){
+		avm_error("Invalid number of arguments","libfunc_objecttotalmembers");
+
+	}else{
+		oldtable = avm_getactual(0)->data.tableVal;
+		assert(oldtable != NULL);
+		retval.type = table_m;
+		newtable = avm_tablenew();
+				
+		for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
+			if((oldtable->numIndexed[i]) == NULL) continue;
+						
+			struct avm_table_bucket* bucket = oldtable->numIndexed[i];
+			while(bucket != NULL){
+				struct avm_memcell* val = malloc(sizeof(struct avm_memcell));
+				struct avm_memcell* index = malloc(sizeof(struct avm_memcell));
+				index->type = number_m;
+				index->data.numVal = cnt++;
+				/*val->type = number_m;
+				val->data = bucket.key;*/
+				avm_tablesetelem(newtable,index,&(bucket->key));
+
+				bucket = bucket->next;
+
+			}
+		}
+
+		for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
+			if((oldtable->strIndexed[i]) == NULL) continue;
+			struct avm_table_bucket* bucket = oldtable->strIndexed[i];
+			while(bucket != NULL){
+				struct avm_memcell* val = malloc(sizeof(struct avm_memcell));
+				struct avm_memcell* index = malloc(sizeof(struct avm_memcell));
+				index->type = number_m;
+				index->data.numVal = cnt++;
+				/*val->type = number_m;
+				val->data.numVal = strtod(bucket->key.data.strVal, NULL);*/
+				avm_tablesetelem(newtable,index,&(bucket->key));
+
+				bucket = bucket->next;
+
+			}
+		}
+		retval.data.tableVal = newtable;
+
+	}
+}
+
+void libfunc_objecttotalmembers(void){
+        struct avm_table* table;
+        int n = avm_totalactuals();
+
+        if(n != 1){
+                avm_error("Invalid number of arguments","libfunc_objecttotalmembers");
+
+        }else{
+                table = avm_getactual(0)->data.tableVal;
+                assert(table != NULL);
+                retval.type = number_m;
+                retval.data.numVal = table->total;
+        }
+}
+
+void libfunc_objectcopy(void){
+    if(avm_totalactuals() != 1){
+        avm_warning("incorect num of arguments ", "objetcopy");
+        return;
+    }
+
+    struct avm_memcell* object = avm_getactual(0);
+
+    if(object->type != table_m){
+        avm_warning("incorect argument(not a table)", "objetcopy");
+        return;
+    }
+
+    struct avm_table* newtable = avm_tablenew();
+
+    struct avm_table* table = object->data.tableVal;
+    for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
+        if((table->numIndexed[i]) == NULL) continue;
+        struct avm_table_bucket* bucket = table->numIndexed[i];
+        while(bucket != NULL){
+
+        avm_tablesetelem(newtable, &(bucket->key), &(bucket->value));
+
+        bucket = bucket->next;
+
+        }
+    }
+
+    for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
+        if((table->strIndexed[i]) == NULL) continue;
+        struct avm_table_bucket* bucket = table->strIndexed[i];
+        while(bucket != NULL){
+
+            avm_tablesetelem(newtable, &(bucket->key), &(bucket->value));
+
+            bucket = bucket->next;
+        }
+    }
+
+    retval.type = table_m;
+    retval.data.tableVal = newtable;
+}
+
+void libfunc_totalarguments (void){
+    int previous_topSp = avm_get_envvalue(topsp + AVM_SAVEDTOPSP_OFFSET);
+
+    if(previous_topSp == 0){
+        avm_warning("totalarguments called outside of a function!", "tottalarguments");
+        retval.type = nil_m;
+    }else{
+        retval.type = number_m;
+        retval.data.numVal = avm_get_envvalue(previous_topSp + AVM_NUMACTUALS_OFFSET);
+    }
+}
+
+void libfunc_argument(){
+        struct avm_memcell* m;
+        unsigned arg;
+        unsigned prev_topsp;
+
+        unsigned n = avm_totalactuals();
+
+        if(n != 1){
+                avm_error("Invalid number of arguments in argument()",NULL);
+        }else{
+		
+		assert(avm_getactual(0)->type == number_m);
+		arg = avm_getactual(0)->data.numVal;
+		prev_topsp = avm_get_envvalue(topsp + AVM_SAVEDTOPSP_OFFSET);
+
+		if(prev_topsp == 0){
+			retval.type = nil_m;
+			
+			avm_warning("Called argument() outside a function",NULL);
+		}else{
+			m = &stack[prev_topsp + AVM_STACKENV_SIZE + 1 + arg];
+			if(m->type == number_m){
+				retval.type = number_m;
+				retval.data.numVal = m->data.numVal;
+			}else if(m->type == string_m){
+				retval.type = string_m;
+				retval.data.strVal = m->data.strVal;
+			}else if(m->type == bool_m){
+				retval.type = bool_m;
+				retval.data.boolVal = m->data.boolVal;
+			}else if(m->type == table_m){
+				retval.type = table_m;
+				retval.data.tableVal = m->data.tableVal;
+			}else if(m->type == userfunc){
+				retval.type = userfunc_m;
+				retval.data.funcVal = m->data.funcVal;
+			}else if(m->type == libfunc_m){
+				retval.type = libfunc_m;
+				retval.data.libfuncVal = m->data.libfuncVal;
+			}else if(m->type == undef_m){
+				retval.type = undef_m;
+			}else{
+				retval.type = nil_m;
+			}
+		}
+	}
+}
+
 void libfunc_typeof(void){
 
 	unsigned n = avm_totalactuals();
@@ -3189,6 +3486,82 @@ void libfunc_typeof(void){
 		retval.data.strVal = strdup(typeStrings[avm_getactual(0)->type]);
 	}
 }
+
+void libfunc_strtonum(void){
+        unsigned n = avm_totalactuals();
+        if(n != 1){
+                avm_error("Invalid number of arguments for strtonum","libfunc_strtonum");
+        }
+
+	struct avm_memcell* str = avm_getactual(0);
+        if(str->type != string_m){
+                avm_error("Invalid input type for strtonum","libfunc_strtonum");
+        } else {
+
+        	char *endPtr;
+        	errno = 0;
+        	retval.data.numVal = strtod(str->data.strVal, &endPtr);
+
+        	if(errno == ERANGE && (retval.data.numVal == HUGE_VAL || retval.data.numVal == -HUGE_VAL)){
+                	retval.type = nil_m;
+                	avm_error("Error converting %s to double",str->data.strVal);
+        	}else if(errno != 0 && retval.data.numVal == 0.0){
+        		retval.type = nil_m;
+                	avm_error("Cannot convert %s to double",str->data.strVal);
+        	}else if(endPtr == str->data.strVal){
+                	retval.type = nil_m;
+                	avm_warning("No digits in given string",NULL);
+        	}else{
+                	retval.type = number_m;
+        	}
+	}
+
+}
+
+void libfunc_sqrt(void){
+	unsigned n = avm_totalactuals();
+	if(n!=1) avm_error("Only one argument is expected in 'sqrt'", "libfunc_sqrt()");
+	else{
+		struct avm_memcell* num = avm_getactual(0);
+		if(num->type != number_m) avm_error("A real number is expected as an argument","libfunc_sqrt");
+		else{
+			if(num->data.numVal < 0) retval.type = nil_m;
+			else {retval.type = number_m; retval.data.numVal = sqrt(num->data.numVal); } 
+		}
+	
+	}
+}
+
+void libfunc_sin(void){
+	unsigned n = avm_totalactuals();
+	if(n!=1) avm_error("Only one argument is expected in 'sin'", "libfunc_sin()");
+	else{
+		struct avm_memcell* num = avm_getactual(0);
+		if(num->type != number_m) avm_error("A real number is expected as an argument","libfunc_sin");
+		else{
+			double rad = num->data.numVal * DEGREE_CONVERTER;
+			retval.type = number_m; 
+			retval.data.numVal = sin(rad);
+		}
+	
+	}
+}
+
+void libfunc_cos(void){
+	unsigned n = avm_totalactuals();
+	if(n!=1) avm_error("Only one argument is expected in 'cos'", "libfunc_cos()");
+	else{
+		struct avm_memcell* num = avm_getactual(0);
+		if(num->type != number_m) avm_error("A real number is expected as an argument","libfunc_cos");
+		else{
+			double rad = num->data.numVal * DEGREE_CONVERTER;
+			retval.type = number_m; 
+			retval.data.numVal = cos(rad);
+		}
+	
+	}
+}
+
 
 
 void avm_push_table_arg(struct avm_table* t){
@@ -3343,7 +3716,7 @@ char* bool_tostring(struct avm_memcell* m){
 
 }
 
-char* table_tostring(struct avm_memcell* m){ //TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+char* table_tostring(struct avm_memcell* m){
 	struct avm_table* table = m->data.tableVal;
 	printf("[ ");
 	for(int i = 0;i < AVM_TABLE_HASHSIZE;i++){
@@ -3406,7 +3779,8 @@ char* userfunc_tostring(struct avm_memcell* m){
 	length2 = strlen(f->name);
 	char* str_userfunc = malloc(sizeof(char) * (length1 + length2) + 30);
 	sprintf(str_userfunc,"Userfunc %s at address %u",f->name,m->data.funcVal);
-	return str_userfunc; //TODO: change the str to the one that's described on the faq
+	return str_userfunc; 
+
 }
 
 char* libfunc_tostring(struct avm_memcell* m){
@@ -3467,6 +3841,8 @@ void setTableBucket(struct avm_table* table,struct avm_table_bucket* bucket){
 
 	bucket->next = *list;	
 	*list = bucket;
+
+	table->total++;
 
 }
 

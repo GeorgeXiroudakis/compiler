@@ -305,3 +305,6 @@ extern void execute_arithmetic(struct instruction* t);
 #define execute_mod execute_arithmetic
 
 #define HASH_MULTIPLIER 65599
+#define MAX_INPUTSIZE 2048
+
+#define DEGREE_CONVERTER (3.1415926535/180)
