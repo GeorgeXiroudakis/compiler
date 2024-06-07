@@ -1535,7 +1535,7 @@ int main(int argc, char **argv) {
 	generate_instructions();
 	printInstructions();
 	
-	printValArray();
+//	printValArray();
 
 	avm_initialize();
 	run_alphaprogram();
