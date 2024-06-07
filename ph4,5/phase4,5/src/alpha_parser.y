@@ -152,8 +152,9 @@ unsigned libfuncCounter = 0;
 
 struct func_stack* head = NULL;
 
-int func_skip_inst_index = -1;
+int extraCounter = 0;
 
+int func_skip_inst_index = -1;
 unsigned func_skip_stack[MAX_NESTED_FUNC];
 
 
@@ -2414,12 +2415,13 @@ void generate_FUNCSTART (struct quad* q) {
 	qd->op = JUMP;
 	qd->label = qd->taddress = qd->line = 0;
 	generate_JUMP(qd);
-		
+	extraCounter++;
 	push_to_skip_stack(currInstr);
 
 
 	SymbolTableEntry_t* f;
 	f = q->result->sym;
+	f->value.funcVal->qaddress += extraCounter;
 	f->taddress = nextinstructionlabel();
 	q->taddress = nextinstructionlabel();
 	userfuncs_newfunc(f);
@@ -2698,7 +2700,7 @@ Function_t* userfuncs_getfunc_with_index(unsigned index){
 
 Function_t* userfuncs_getfunc(unsigned address){
 	for(int i = 0; i < funcCounter; i++){
-		if(funcArray[i]->qaddress == address - 1)return funcArray[i];
+		if(funcArray[i]->qaddress == address /*- 1*/)return funcArray[i];
 	}
 	
 	avm_error("function not found", "userfuncs_getfunc");
@@ -2806,7 +2808,7 @@ struct avm_memcell* avm_translate_operand(struct vmarg* arg,struct avm_memcell* 
 				reg = malloc(sizeof(struct avm_memcell));
 			}
 			reg->type = userfunc_m;
-			reg->data.funcVal = userfuncs_getfunc_with_index(arg->val)->qaddress + 1; //+1 to skip the skiping func jump
+			reg->data.funcVal = userfuncs_getfunc_with_index(arg->val)->qaddress /*+ extraCounter*/; //+1 to skip the skiping func jump
 			return reg;
 		}
 		
@@ -2992,6 +2994,7 @@ void execute_jgt(struct instruction* t){
 void execute_call(struct instruction* t){
 	struct avm_memcell* func = avm_translate_operand(&(t->arg1), &ax);
 	assert(func);
+	//func->data.funcVal += extraCounter * 2; 
 	
 	switch(func->type) {
 		case userfunc_m: {
