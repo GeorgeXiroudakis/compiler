@@ -39,6 +39,7 @@ void printFuncArgs(FunctArgNode_t *f);
 void printScopeLists();
 int libFuncCheck(char* key);
 void allocateScopes(int scope);
+int checkPostfix(char*, char*);
 
 /*phase 3*/
 
@@ -1454,6 +1455,18 @@ int yylex(void) {
     return alpha_yylex(); 
 }
 
+int checkPostfix(char *str, char *postfix){
+	size_t str_len = strlen(str);
+    size_t postfix_len = strlen(postfix);
+
+    if (postfix_len > str_len) {
+        return 0;
+    }
+
+    return strcmp(str + str_len - postfix_len, postfix) == 0;
+
+}
+
 
 int main(int argc, char **argv) {
 	FILE *inputFile;
@@ -1477,6 +1490,13 @@ int main(int argc, char **argv) {
 	if(argc > 2){
 		fprintf(stderr, RED "Wrong call of alpha_parser\ncall with one optional command line argument (the file to analyze)\n" RESET);
 		exit(EXIT_FAILURE);
+	}
+	
+	char *postfix = ".asc";
+	if(!checkPostfix(argv[1], postfix)){
+		fprintf(stderr, RED "not Alpha code file\nCorect postfix is asc\n" RESET);
+		exit(EXIT_FAILURE);
+		
 	}
 
 	if(argc == 2){
